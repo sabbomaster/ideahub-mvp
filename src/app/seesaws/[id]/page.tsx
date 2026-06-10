@@ -4,6 +4,7 @@ import { Lightbulb, Minus, Plus, Send } from "lucide-react";
 import {
   addMentalSeesawItem,
   addSelfQuestionMemo,
+  deleteMentalSeesaw,
   deleteMentalSeesawItem,
   deleteSelfQuestionMemo,
   publishMentalSeesawReliefIdea,
@@ -12,6 +13,7 @@ import {
   updateMentalSeesawOutcome,
   updateSelfQuestionMemo,
 } from "@/app/actions";
+import { ConfirmSubmitButton } from "@/components/confirm-submit-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -171,6 +173,7 @@ export default async function MentalSeesawDetailPage({
           <Button asChild variant="outline">
             <Link href="/seesaws">一覧へ</Link>
           </Button>
+          {isOwner ? <DeleteMentalSeesawForm seesawId={id} /> : null}
         </div>
         {!isOwner && description ? <p className="max-w-4xl whitespace-pre-wrap text-sm leading-7 text-muted-foreground">{description}</p> : null}
         {errorCode ? <p className="text-sm font-medium text-destructive">操作に失敗しました。入力内容や権限を確認してください。</p> : null}
@@ -296,6 +299,14 @@ function EntryPanel({
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+function DeleteMentalSeesawForm({ seesawId }: { seesawId: string }) {
+  return (
+    <form action={deleteMentalSeesaw.bind(null, seesawId)} className="w-full sm:w-auto">
+      <ConfirmSubmitButton message="削除しますか？" className="w-full sm:w-auto" />
+    </form>
   );
 }
 

@@ -171,6 +171,19 @@ export async function updateMentalSeesawMeta(seesawId: string, formData: FormDat
   redirect(`/seesaws/${seesawId}`);
 }
 
+export async function deleteMentalSeesaw(seesawId: string) {
+  const { supabase, user } = await requireUser();
+  const { error } = await supabase.from("mental_seesaws").delete().eq("id", seesawId).eq("user_id", user.id);
+
+  if (error) {
+    console.error(error);
+    redirect(`/seesaws/${seesawId}?error=delete`);
+  }
+
+  revalidatePath("/seesaws");
+  redirect("/seesaws");
+}
+
 export async function addMentalSeesawItem(seesawId: string, kind: MentalSeesawItemKind, formData: FormData) {
   const { supabase, user } = await requireUser();
   const content = String(formData.get("content") ?? "").trim();

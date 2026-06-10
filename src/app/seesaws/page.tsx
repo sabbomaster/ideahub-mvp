@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { Plus, Scale } from "lucide-react";
+import { deleteMentalSeesaw } from "@/app/actions";
+import { ConfirmSubmitButton } from "@/components/confirm-submit-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -97,6 +99,11 @@ export default async function MentalSeesawsPage() {
                 <div className="flex flex-col gap-1 sm:flex-row sm:flex-wrap sm:gap-3">
                   <span>{seesaw.profiles?.display_name || seesaw.profiles?.username || "匿名ユーザー"}</span>
                   {seesaw.next_action ? <span>次: {seesaw.next_action}</span> : null}
+                </div>
+                <div className="flex flex-wrap gap-2 pt-1">
+                  <form action={deleteMentalSeesaw.bind(null, seesaw.id)}>
+                    <ConfirmSubmitButton message="削除しますか？" />
+                  </form>
                 </div>
               </CardContent>
             </Card>
