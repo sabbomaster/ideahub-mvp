@@ -1,8 +1,8 @@
 /* eslint-disable @next/next/no-img-element */
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { Archive, CheckCircle2, Edit3, Gift, Heart, MessageCircle, Rocket, RotateCcw, ShieldAlert } from "lucide-react";
-import { addComment, archiveIdea, imaginedTip, markExecutionReport, reportTarget, selfExecuteIdea, toggleLike, unarchiveIdea, updateIdeaStatus } from "@/app/actions";
+import { Archive, CheckCircle2, Edit3, Heart, MessageCircle, Rocket, RotateCcw, ShieldAlert } from "lucide-react";
+import { addComment, archiveIdea, markExecutionReport, reportTarget, selfExecuteIdea, toggleLike, unarchiveIdea, updateIdeaStatus } from "@/app/actions";
 import { DeleteIdeaButton } from "@/components/delete-idea-button";
 import { IdeaImageGrid } from "@/components/idea-image-grid";
 import { Badge } from "@/components/ui/badge";
@@ -194,12 +194,6 @@ export default async function IdeaDetailPage({
                     </Button>
                   </form>
                 ) : null}
-                <form action={imaginedTip.bind(null, id)}>
-                  <Button variant="outline" size="sm">
-                    <Gift className="mr-2 h-4 w-4" />
-                    想定チップ +3
-                  </Button>
-                </form>
               </div>
             ) : null}
           </CardContent>

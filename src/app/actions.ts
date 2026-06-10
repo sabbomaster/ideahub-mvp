@@ -812,12 +812,6 @@ export async function reportTarget(
   revalidatePath(returnPath);
 }
 
-export async function imaginedTip(ideaId: string) {
-  const { supabase } = await requireUser();
-  await supabase.rpc("credit_for_imagined_tip", { target_idea_id: ideaId });
-  revalidatePath(`/ideas/${ideaId}`);
-}
-
 export async function updateProfile(formData: FormData) {
   const { supabase, user } = await requireUser();
   const username = String(formData.get("username") ?? "").trim();
