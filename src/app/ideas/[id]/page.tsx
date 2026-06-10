@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Archive, CheckCircle2, Edit3, Gift, Heart, MessageCircle, Rocket, RotateCcw, ShieldAlert } from "lucide-react";
 import { addComment, archiveIdea, imaginedTip, markExecutionReport, reportTarget, selfExecuteIdea, toggleLike, unarchiveIdea, updateIdeaStatus } from "@/app/actions";
 import { DeleteIdeaButton } from "@/components/delete-idea-button";
+import { IdeaImageGrid } from "@/components/idea-image-grid";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,6 +24,7 @@ type IdeaDetailData = {
   visibility: IdeaVisibility;
   execution_permission: ExecutionPermission;
   image_url: string | null;
+  image_urls: string[] | null;
   archived_at: string | null;
   hidden_at: string | null;
   delete_scheduled_at: string | null;
@@ -73,7 +75,7 @@ export default async function IdeaDetailPage({
 
   const { data: ideaResult } = await supabase
     .from("ideas")
-    .select("id,title,body,type,status,status_before_archive,source,visibility,execution_permission,image_url,archived_at,hidden_at,delete_scheduled_at,created_at,updated_at,user_id,profiles(id,username,display_name,credit_score)")
+    .select("id,title,body,type,status,status_before_archive,source,visibility,execution_permission,image_url,image_urls,archived_at,hidden_at,delete_scheduled_at,created_at,updated_at,user_id,profiles(id,username,display_name,credit_score)")
     .eq("id", id)
     .single();
 
@@ -130,9 +132,15 @@ export default async function IdeaDetailPage({
   const author = idea.profiles?.display_name || idea.profiles?.username || "匿名ユーザー";
   const returnPath = `/ideas/${id}`;
   const canReportExecution = Boolean(user && !isAuthor && !isArchived && idea.visibility === "public" && !isSelfImprovement && idea.execution_permission === "public");
-  const imageUrl = idea.image_url
-    ? (await supabase.storage.from("idea-images").createSignedUrl(idea.image_url, 60 * 60)).data?.signedUrl ?? null
-    : null;
+  const imagePaths = [...(idea.image_urls ?? []), ...(idea.image_url ? [idea.image_url] : [])].filter(Boolean);
+  const imageUrls = (
+    await Promise.all(
+      [...new Set(imagePaths)].slice(0, 4).map(async (path) => {
+        const { data } = await supabase.storage.from("idea-images").createSignedUrl(path, 60 * 60);
+        return data?.signedUrl ?? null;
+      }),
+    )
+  ).filter((url): url is string => Boolean(url));
 
   return (
     <div className="container grid gap-6 py-8 lg:grid-cols-[1fr_320px]">
@@ -141,7 +149,7 @@ export default async function IdeaDetailPage({
           <CardHeader className="space-y-4">
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant={idea.type === "serious" ? "default" : "secondary"}>
-                {idea.type === "serious" ? "本気枠" : "思いつき枠"}
+                {idea.type === "serious" ? "🚀 プロジェクト枠" : "💡 アイデア枠"}
               </Badge>
               {isSelfImprovement ? <Badge variant="secondary">自己改善</Badge> : null}
               <Badge variant={idea.visibility === "public" ? "outline" : "secondary"}>{idea.visibility === "public" ? "公開" : "非公開"}</Badge>
@@ -167,7 +175,7 @@ export default async function IdeaDetailPage({
             </Link>
           </CardHeader>
           <CardContent className="space-y-6">
-            {imageUrl ? <img src={imageUrl} alt="" className="max-h-[520px] w-full rounded-md border object-cover" /> : null}
+            <IdeaImageGrid images={imageUrls} />
             <p className="whitespace-pre-wrap leading-8">{idea.body}</p>
             {!isArchived ? (
               <div className="flex flex-wrap gap-2">

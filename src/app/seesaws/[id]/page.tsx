@@ -65,10 +65,15 @@ export default async function MentalSeesawDetailPage({
     data: { user },
   } = await supabase.auth.getUser();
 
+  if (!user) {
+    notFound();
+  }
+
   const { data: seesawResult, error: seesawError } = await supabase
     .from("mental_seesaws")
     .select("id,user_id,title,description,context,final_decision,next_action,created_at,updated_at,profiles(id,username,display_name)")
     .eq("id", id)
+    .eq("user_id", user.id)
     .single();
 
   if (seesawError || !seesawResult) {
@@ -400,18 +405,18 @@ function SeesawStage({
         </div>
       </CardHeader>
       <CardContent>
-        <div className="relative mx-auto min-h-[410px] overflow-hidden rounded-md bg-gradient-to-b from-white to-muted/40 p-4 sm:min-h-[470px]">
-          <div className="absolute left-1/2 top-[58%] z-10 h-0 w-0 -translate-x-1/2 border-x-[38px] border-b-[70px] border-x-transparent border-b-foreground/75" />
+        <div className="relative mx-auto min-h-[540px] overflow-hidden rounded-md bg-gradient-to-b from-white to-muted/40 p-4 sm:min-h-[500px]">
+          <div className="absolute left-1/2 top-[52%] z-10 h-0 w-0 -translate-x-1/2 border-x-[34px] border-b-[64px] border-x-transparent border-b-foreground/75 sm:border-x-[38px] sm:border-b-[70px]" />
           <div
-            className="absolute left-[8%] right-[8%] top-[54%] h-3 origin-center rounded-full bg-foreground/80 shadow-lg transition-transform"
+            className="absolute left-[8%] right-[8%] top-[50%] h-3 origin-center rounded-full bg-foreground/80 shadow-lg transition-transform sm:top-[52%]"
             style={{ transform: `rotate(${tiltDegrees}deg)` }}
           />
-          <div className="absolute left-[8%] right-[8%] top-[54%] transition-transform" style={{ transform: `rotate(${tiltDegrees}deg)` }}>
+          <div className="absolute left-[8%] right-[8%] top-[50%] transition-transform sm:top-[52%]" style={{ transform: `rotate(${tiltDegrees}deg)` }}>
             <WeightStack items={positives} side="left" />
             <WeightStack items={negatives} side="right" />
           </div>
-          <div className="absolute bottom-4 left-4 right-4 rounded-md border bg-card/95 p-4 text-center shadow-sm">
-            <div className="text-lg font-bold">
+          <div className="absolute bottom-5 left-4 right-4 rounded-md border bg-card/95 p-4 text-center shadow-sm">
+            <div className="text-base font-bold sm:text-lg">
               現在の状態: <span className={positiveTotal >= negativeTotal ? "text-emerald-700" : "text-rose-600"}>{stateText}</span>
             </div>
             <p className="mt-1 text-sm text-muted-foreground">
@@ -429,7 +434,7 @@ function WeightStack({ items, side }: { items: SeesawItemData[]; side: "left" | 
   return (
     <div
       className={cn(
-        "absolute top-[-150px] flex w-[44%] max-w-[270px] flex-col-reverse gap-2",
+        "absolute top-[-165px] flex w-[44%] max-w-[270px] flex-col-reverse gap-2 sm:top-[-155px]",
         side === "left" ? "left-[2%] items-start" : "right-[2%] items-end",
       )}
     >

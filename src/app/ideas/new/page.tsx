@@ -10,11 +10,11 @@ import { trustLimits } from "@/lib/trust";
 const errorMessages: Record<string, string> = {
   daily_limit: "今日は投稿数が上限に達しました。少し時間を置いてから投稿してください。",
   external_link: "外部リンクを含む投稿は、もう少し活動実績が増えてから使えます。",
-  image: "画像のアップロードに失敗しました。5MB以下の画像を選んでください。",
+  image: "画像のアップロードに失敗しました。画像は最大4枚、1枚5MB以下で選んでください。",
   missing: "タイトル、本文、投稿項目を確認してください。",
   recent_limit: "短時間に投稿が続いています。少し時間を置いてから投稿してください。",
   save: "投稿の保存に失敗しました。",
-  serious_trust: "本気枠への投稿は、一定の活動実績ができてから使えます。まずは思いつき枠で投稿してください。",
+  serious_trust: "プロジェクト枠への投稿は、一定の活動実績ができてから使えます。まずはアイデア枠で投稿してください。",
 };
 
 export default async function NewIdeaPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
@@ -45,7 +45,7 @@ export default async function NewIdeaPage({ searchParams }: { searchParams: Prom
             ) : null}
             {!canUseSerious ? (
               <div className="rounded-md border bg-muted px-4 py-3 text-sm leading-6 text-muted-foreground">
-                新規ユーザーは、まず「思いつき枠」から投稿できます。本気枠は活動実績が増えると使えるようになります。
+                新規ユーザーは、まず「アイデア枠」から投稿できます。プロジェクト枠は活動実績が増えると使えるようになります。
               </div>
             ) : null}
             <div className="space-y-2">
@@ -64,8 +64,8 @@ export default async function NewIdeaPage({ searchParams }: { searchParams: Prom
                 className="min-h-11 w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 defaultValue="rough"
               >
-                <option value="rough">rough: AI生成・思いつき枠</option>
-                <option value="serious">serious: 人間が練った本気枠</option>
+                <option value="rough">💡 アイデア枠</option>
+                <option value="serious">🚀 プロジェクト枠</option>
               </select>
             </div>
             <div className="space-y-2">
@@ -75,11 +75,11 @@ export default async function NewIdeaPage({ searchParams }: { searchParams: Prom
               <Textarea id="body" name="body" required placeholder="背景、誰の課題か、どう実行できそうかを書いてください。" className="min-h-36" />
             </div>
             <div className="space-y-2">
-              <label htmlFor="image" className="text-sm font-medium">
+              <label htmlFor="images" className="text-sm font-medium">
                 画像を添付
               </label>
-              <Input id="image" name="image" type="file" accept="image/png,image/jpeg,image/webp,image/gif" className="min-h-11" />
-              <p className="text-xs text-muted-foreground">PNG / JPEG / WebP / GIF、5MBまで。</p>
+              <Input id="images" name="images" type="file" accept="image/png,image/jpeg,image/webp,image/gif" multiple className="min-h-11" />
+              <p className="text-xs text-muted-foreground">PNG / JPEG / WebP / GIF、最大4枚、1枚5MBまで。</p>
             </div>
             <div className="space-y-3">
               <div className="text-sm font-medium">公開範囲</div>

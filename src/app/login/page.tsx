@@ -2,7 +2,8 @@ import { redirect } from "next/navigation";
 import { LoginForm } from "@/components/login-form";
 import { createClient } from "@/lib/supabase/server";
 
-export default async function LoginPage() {
+export default async function LoginPage({ searchParams }: { searchParams: Promise<{ password?: string }> }) {
+  const { password } = await searchParams;
   const supabase = await createClient();
   const {
     data: { user },
@@ -18,7 +19,7 @@ export default async function LoginPage() {
           Supabase Auth を使った登録・ログインです。ログイン後に投稿、コメント、いいね、実行報告ができます。
         </p>
       </div>
-      <LoginForm />
+      <LoginForm message={password === "updated" ? "パスワードを更新しました。新しいパスワードでログインしてください。" : undefined} />
     </div>
   );
 }

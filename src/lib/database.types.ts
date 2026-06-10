@@ -31,6 +31,7 @@ export type Idea = {
   visibility: IdeaVisibility;
   execution_permission: ExecutionPermission;
   image_url: string | null;
+  image_urls: string[];
   archived_at: string | null;
   hidden_at: string | null;
   delete_scheduled_at: string | null;
@@ -91,8 +92,8 @@ export type Database = {
       };
       ideas: {
         Row: Idea;
-        Insert: Omit<Idea, "id" | "created_at" | "updated_at" | "status" | "status_before_archive" | "source" | "visibility" | "execution_permission" | "image_url" | "archived_at" | "hidden_at" | "delete_scheduled_at"> &
-          Partial<Pick<Idea, "status" | "status_before_archive" | "source" | "visibility" | "execution_permission" | "image_url" | "archived_at" | "hidden_at" | "delete_scheduled_at">>;
+        Insert: Omit<Idea, "id" | "created_at" | "updated_at" | "status" | "status_before_archive" | "source" | "visibility" | "execution_permission" | "image_url" | "image_urls" | "archived_at" | "hidden_at" | "delete_scheduled_at"> &
+          Partial<Pick<Idea, "status" | "status_before_archive" | "source" | "visibility" | "execution_permission" | "image_url" | "image_urls" | "archived_at" | "hidden_at" | "delete_scheduled_at">>;
         Update: Partial<Omit<Idea, "id" | "user_id" | "created_at">>;
         Relationships: [];
       };

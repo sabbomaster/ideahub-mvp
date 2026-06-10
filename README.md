@@ -88,6 +88,18 @@ supabase/migrations/202606100014_profile_avatar_storage_fix.sql
 supabase/migrations/202606100015_performance_indexes.sql
 ```
 
+メンタルシーソーを本人だけが閲覧できる個人メモとして扱う場合は、次の migration も実行してください。
+
+```text
+supabase/migrations/202606100016_private_mental_seesaws.sql
+```
+
+アイデア投稿に最大4枚の画像添付を使う場合は、次の migration も実行してください。
+
+```text
+supabase/migrations/202606100017_idea_multiple_images.sql
+```
+
 ## Vercel デプロイ手順
 
 1. GitHub などにこのプロジェクトを push します。
@@ -118,10 +130,13 @@ Authentication > URL Configuration
 - Site URL: `https://your-vercel-domain.vercel.app`
 - Redirect URLs:
   - `https://your-vercel-domain.vercel.app/**`
+  - `https://your-vercel-domain.vercel.app/auth/callback`
   - 独自ドメインを使う場合: `https://your-domain.com/**`
+  - 独自ドメインを使う場合: `https://your-domain.com/auth/callback`
   - ローカル確認も続ける場合: `http://localhost:3000/**`
+  - ローカル確認も続ける場合: `http://localhost:3000/auth/callback`
 
-このアプリの通常ログインはメール・パスワード認証ですが、メール確認や将来の OAuth を使う場合にこの設定が必要です。
+パスワード再設定メールは、開いているサイトの origin を使って `/auth/callback?next=/auth/update-password` に戻します。callback route で Supabase Auth の `code` を cookie セッションに交換してから、パスワード更新画面へ遷移します。本番では Vercel URL、独自ドメイン利用時は独自ドメインを Supabase Auth の Redirect URLs に追加してください。
 
 ## localhost 依存について
 

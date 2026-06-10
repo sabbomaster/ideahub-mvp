@@ -1,7 +1,9 @@
 /* eslint-disable @next/next/no-img-element */
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import { Trash2 } from "lucide-react";
 import { updateIdea } from "@/app/actions";
+import { IdeaImageGrid } from "@/components/idea-image-grid";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -17,11 +19,12 @@ type EditableIdea = {
   visibility: IdeaVisibility;
   execution_permission: ExecutionPermission;
   image_url: string | null;
+  image_urls: string[] | null;
   user_id: string;
 };
 
 const errorMessages: Record<string, string> = {
-  image: "画像のアップロードに失敗しました。5MB以下の画像を選んでください。",
+  image: "画像のアップロードに失敗しました。画像は最大4枚、1枚5MB以下で選んでください。",
   missing: "タイトル、本文、投稿項目を確認してください。",
   save: "保存に失敗しました。",
 };
@@ -44,7 +47,7 @@ export default async function EditIdeaPage({
 
   const { data: ideaResult, error } = await supabase
     .from("ideas")
-    .select("id,title,body,type,visibility,execution_permission,image_url,user_id")
+    .select("id,title,body,type,visibility,execution_permission,image_url,image_urls,user_id")
     .eq("id", id)
     .single();
 
@@ -52,9 +55,15 @@ export default async function EditIdeaPage({
   if (error || !idea) redirect("/ideas");
   if (idea.user_id !== user.id) redirect(`/ideas/${id}`);
 
-  const currentImageUrl = idea.image_url
-    ? (await supabase.storage.from("idea-images").createSignedUrl(idea.image_url, 60 * 60)).data?.signedUrl ?? null
-    : null;
+  const imagePaths = [...new Set([...(idea.image_urls ?? []), ...(idea.image_url ? [idea.image_url] : [])].filter(Boolean))].slice(0, 4);
+  const currentImages = (
+    await Promise.all(
+      imagePaths.map(async (path) => {
+        const { data } = await supabase.storage.from("idea-images").createSignedUrl(path, 60 * 60);
+        return data?.signedUrl ? { path, url: data.signedUrl } : null;
+      }),
+    )
+  ).filter((image): image is { path: string; url: string } => Boolean(image));
 
   return (
     <div className="container max-w-3xl py-8">
@@ -85,8 +94,8 @@ export default async function EditIdeaPage({
                 className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 defaultValue={idea.type}
               >
-                <option value="rough">rough: AI生成・思いつき枠</option>
-                <option value="serious">serious: 人間が練った本気枠</option>
+                <option value="rough">💡 アイデア枠</option>
+                <option value="serious">🚀 プロジェクト枠</option>
               </select>
             </div>
             <div className="space-y-2">
@@ -96,14 +105,29 @@ export default async function EditIdeaPage({
               <Textarea id="body" name="body" required defaultValue={idea.body} />
             </div>
             <div className="space-y-3">
-              <label htmlFor="image" className="text-sm font-medium">
+              <label htmlFor="images" className="text-sm font-medium">
                 画像
               </label>
-              {currentImageUrl ? (
-                <img src={currentImageUrl} alt="" className="aspect-video w-full rounded-md border object-cover" />
+              <IdeaImageGrid images={currentImages.map((image) => image.url)} />
+              {currentImages.length ? (
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {currentImages.map((image, index) => (
+                    <label key={image.path} className="flex cursor-pointer gap-3 rounded-md border p-3">
+                      <img src={image.url} alt="" className="h-20 w-20 shrink-0 rounded-md border object-cover" />
+                      <span className="flex min-w-0 flex-1 flex-col justify-between gap-2">
+                        <span className="text-sm font-medium">画像 {index + 1}</span>
+                        <span className="flex items-center gap-2 text-sm text-destructive">
+                          <input type="checkbox" name="remove_image_urls" value={image.path} className="h-4 w-4" />
+                          <Trash2 className="h-4 w-4" />
+                          削除する
+                        </span>
+                      </span>
+                    </label>
+                  ))}
+                </div>
               ) : null}
-              <Input id="image" name="image" type="file" accept="image/png,image/jpeg,image/webp,image/gif" />
-              <p className="text-xs text-muted-foreground">新しい画像を選ぶと差し替えます。PNG / JPEG / WebP / GIF、5MBまで。</p>
+              <Input id="images" name="images" type="file" accept="image/png,image/jpeg,image/webp,image/gif" multiple />
+              <p className="text-xs text-muted-foreground">新しく画像を選ぶと、既存画像をまとめて差し替えます。PNG / JPEG / WebP / GIF、最大4枚、1枚5MBまで。</p>
             </div>
             <div className="space-y-3">
               <div className="text-sm font-medium">公開範囲</div>

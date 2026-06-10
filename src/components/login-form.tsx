@@ -2,16 +2,17 @@
 
 import type { FormEvent } from "react";
 import { useState } from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { ensureProfile } from "@/lib/profiles";
 import { createClient } from "@/lib/supabase/client";
 
-export function LoginForm() {
+export function LoginForm({ message: initialMessage = "" }: { message?: string }) {
   const supabase = createClient();
   const [mode, setMode] = useState<"login" | "signup">("login");
-  const [message, setMessage] = useState("");
+  const [message, setMessage] = useState(initialMessage);
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -76,6 +77,13 @@ export function LoginForm() {
               {mode === "login" ? "新規登録へ" : "ログインへ"}
             </Button>
           </div>
+          {mode === "login" ? (
+            <div className="border-t pt-4">
+              <Link href="/auth/forgot-password" className="text-sm font-medium text-primary hover:underline">
+                パスワードを忘れた方はこちら
+              </Link>
+            </div>
+          ) : null}
         </form>
       </CardContent>
     </Card>

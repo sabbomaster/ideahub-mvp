@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Archive, CheckCircle2, Heart, MessageCircle, Rocket, RotateCcw } from "lucide-react";
 import { archiveIdea, markExecutionReport, selfExecuteIdea, unarchiveIdea, updateIdeaStatus } from "@/app/actions";
 import { DeleteIdeaButton } from "@/components/delete-idea-button";
+import { IdeaImageGrid } from "@/components/idea-image-grid";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,6 +22,7 @@ export type IdeaCardData = {
   visibility?: IdeaVisibility;
   execution_permission?: ExecutionPermission;
   image_url?: string | null;
+  image_urls?: string[] | null;
   created_at: string;
   updated_at: string;
   profiles: { id: string; username: string | null; display_name: string | null } | null;
@@ -48,7 +50,7 @@ export function IdeaCard({ currentUserId, idea, showExecutionReportAction = true
     <Card className="w-full min-w-0 transition-colors hover:border-primary/40">
       <CardHeader className="space-y-3">
         <div className="flex flex-wrap items-center gap-2">
-          <Badge variant={idea.type === "serious" ? "default" : "secondary"}>{idea.type === "serious" ? "本気枠" : "思いつき枠"}</Badge>
+          <Badge variant={idea.type === "serious" ? "default" : "secondary"}>{idea.type === "serious" ? "🚀 プロジェクト枠" : "💡 アイデア枠"}</Badge>
           {isSelfImprovement ? <Badge variant="secondary">自己改善</Badge> : null}
           <Badge variant={visibility === "public" ? "outline" : "secondary"}>{visibility === "public" ? "公開" : "非公開"}</Badge>
           <Badge variant="outline">{executionPermission === "owner_only" ? "投稿者のみ実行可" : "誰でも実行可"}</Badge>
@@ -76,7 +78,7 @@ export function IdeaCard({ currentUserId, idea, showExecutionReportAction = true
         </CardTitle>
       </CardHeader>
       <CardContent className="min-w-0 space-y-4">
-        {idea.image_url ? <img src={idea.image_url} alt="" className="aspect-video w-full rounded-md border object-cover" /> : null}
+        <IdeaImageGrid images={idea.image_urls?.length ? idea.image_urls : idea.image_url ? [idea.image_url] : []} />
         <p className="line-clamp-3 whitespace-pre-wrap break-words text-sm leading-6 text-muted-foreground">{idea.body}</p>
         <div className="flex flex-col gap-3 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
           <Link href={`/profiles/${idea.profiles?.id ?? ""}`} className="break-words font-medium text-foreground hover:text-primary">

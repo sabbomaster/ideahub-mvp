@@ -27,6 +27,7 @@ create table public.ideas (
   visibility text not null default 'public' check (visibility in ('public', 'private')),
   execution_permission text not null default 'public' check (execution_permission in ('owner_only', 'public')),
   image_url text,
+  image_urls text[] not null default '{}',
   archived_at timestamptz,
   hidden_at timestamptz,
   delete_scheduled_at timestamptz,
@@ -423,8 +424,8 @@ for delete using (auth.uid() = user_id);
 create policy "users can create reports" on public.reports
 for insert with check (auth.uid() = reporter_id);
 
-create policy "visible mental seesaws are readable" on public.mental_seesaws
-for select using (is_public = true or auth.uid() = user_id);
+create policy "owners can read mental seesaws" on public.mental_seesaws
+for select using (auth.uid() = user_id);
 
 create policy "users can create own mental seesaws" on public.mental_seesaws
 for insert with check (auth.uid() = user_id);
@@ -432,12 +433,15 @@ for insert with check (auth.uid() = user_id);
 create policy "users can update own mental seesaws" on public.mental_seesaws
 for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
-create policy "visible mental seesaw items are readable" on public.mental_seesaw_items
+create policy "users can delete own mental seesaws" on public.mental_seesaws
+for delete using (auth.uid() = user_id);
+
+create policy "owners can read mental seesaw items" on public.mental_seesaw_items
 for select using (
   exists (
     select 1 from public.mental_seesaws
     where mental_seesaws.id = mental_seesaw_items.seesaw_id
-      and (mental_seesaws.is_public = true or mental_seesaws.user_id = auth.uid())
+      and mental_seesaws.user_id = auth.uid()
   )
 );
 
@@ -494,6 +498,7 @@ create index likes_target_idx on public.likes(target_type, target_id);
 create index executions_idea_id_idx on public.executions(idea_id);
 create index executions_user_created_at_idx on public.executions(user_id, created_at desc);
 create index mental_seesaws_updated_at_idx on public.mental_seesaws(updated_at desc);
+create index mental_seesaws_user_updated_at_idx on public.mental_seesaws(user_id, updated_at desc);
 create index mental_seesaw_items_seesaw_id_idx on public.mental_seesaw_items(seesaw_id);
 create index mental_seesaw_suggestions_seesaw_id_idx on public.mental_seesaw_suggestions(seesaw_id);
 
@@ -539,6 +544,19 @@ for select using (
   bucket_id = 'idea-images'
   and (
     (auth.role() = 'authenticated' and (storage.foldername(name))[1] = auth.uid()::text)
+    or exists (
+      select 1
+      from public.ideas
+      where storage.objects.name = any(ideas.image_urls)
+        and ideas.visibility = 'public'
+        and ideas.status in ('active', 'completed')
+    )
+    or exists (
+      select 1
+      from public.ideas
+      where storage.objects.name = any(ideas.image_urls)
+        and ideas.user_id = auth.uid()
+    )
     or exists (
       select 1
       from public.ideas

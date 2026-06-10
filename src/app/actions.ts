@@ -38,6 +38,16 @@ const imageTypes = new Map([
   ["image/gif", "gif"],
 ]);
 
+function getImageFiles(formData: FormData) {
+  const files = [...formData.getAll("images"), ...formData.getAll("image")].filter((file): file is File => file instanceof File && file.size > 0);
+
+  if (files.length > 4) {
+    throw new Error("too_many_images");
+  }
+
+  return files;
+}
+
 async function uploadImageFile({
   bucket,
   file,
@@ -73,6 +83,26 @@ async function uploadImageFile({
   }
 
   return path;
+}
+
+async function uploadIdeaImages(files: File[], userId: string) {
+  const uploadedPaths: string[] = [];
+
+  for (const file of files) {
+    const path = await uploadImageFile({
+      bucket: "idea-images",
+      file,
+      maxSize: 5 * 1024 * 1024,
+      userId,
+    });
+    if (path) uploadedPaths.push(path);
+  }
+
+  return uploadedPaths;
+}
+
+function getUniqueImagePaths(imageUrls: string[] | null | undefined, fallbackImageUrl?: string | null) {
+  return [...new Set([...(imageUrls ?? []), ...(fallbackImageUrl ? [fallbackImageUrl] : [])].filter(Boolean))].slice(0, 4);
 }
 
 export async function signOut() {
@@ -388,10 +418,17 @@ export async function createIdea(formData: FormData) {
   const visibility = String(formData.get("visibility") ?? "public") as IdeaVisibility;
   const executionPermission = String(formData.get("execution_permission") ?? "public") as ExecutionPermission;
   const normalizedExecutionPermission = visibility === "private" ? "owner_only" : executionPermission;
-  const imageFile = formData.get("image");
+  let imageFiles: File[] = [];
 
   if (!title || !body || !["rough", "serious"].includes(type) || !["public", "private"].includes(visibility) || !["owner_only", "public"].includes(executionPermission)) {
     redirect("/ideas/new?error=missing");
+  }
+
+  try {
+    imageFiles = getImageFiles(formData);
+  } catch (imageError) {
+    console.error(imageError);
+    redirect("/ideas/new?error=image");
   }
 
   const creditScore = await getCreditScore(supabase, user.id);
@@ -422,14 +459,9 @@ export async function createIdea(formData: FormData) {
     redirect("/ideas/new?error=recent_limit");
   }
 
-  let imageUrl: string | null = null;
+  let imageUrls: string[] = [];
   try {
-    imageUrl = await uploadImageFile({
-      bucket: "idea-images",
-      file: imageFile instanceof File ? imageFile : null,
-      maxSize: 5 * 1024 * 1024,
-      userId: user.id,
-    });
+    imageUrls = await uploadIdeaImages(imageFiles, user.id);
   } catch (uploadError) {
     console.error(uploadError);
     redirect("/ideas/new?error=image");
@@ -441,7 +473,8 @@ export async function createIdea(formData: FormData) {
     type,
     visibility,
     execution_permission: normalizedExecutionPermission,
-    image_url: imageUrl,
+    image_url: imageUrls[0] ?? null,
+    image_urls: imageUrls,
     user_id: user.id,
   });
 
@@ -465,29 +498,57 @@ export async function updateIdea(ideaId: string, formData: FormData) {
   const visibility = String(formData.get("visibility") ?? "public") as IdeaVisibility;
   const executionPermission = String(formData.get("execution_permission") ?? "public") as ExecutionPermission;
   const normalizedExecutionPermission = visibility === "private" ? "owner_only" : executionPermission;
-  const imageFile = formData.get("image");
+  const removeImageUrls = new Set(formData.getAll("remove_image_urls").map((value) => String(value)));
+  let imageFiles: File[] = [];
 
   if (!title || !body || !["rough", "serious"].includes(type) || !["public", "private"].includes(visibility) || !["owner_only", "public"].includes(executionPermission)) {
     redirect(`/ideas/${ideaId}/edit?error=missing`);
   }
 
-  let imageUrl: string | null = null;
   try {
-    imageUrl = await uploadImageFile({
-      bucket: "idea-images",
-      file: imageFile instanceof File ? imageFile : null,
-      maxSize: 5 * 1024 * 1024,
-      userId: user.id,
-    });
+    imageFiles = getImageFiles(formData);
   } catch (uploadError) {
     console.error(uploadError);
     redirect(`/ideas/${ideaId}/edit?error=image`);
   }
 
+  const { data: existingIdea, error: existingIdeaError } = await supabase
+    .from("ideas")
+    .select("image_url,image_urls")
+    .eq("id", ideaId)
+    .eq("user_id", user.id)
+    .single();
+
+  if (existingIdeaError || !existingIdea) {
+    console.error(existingIdeaError);
+    redirect(`/ideas/${ideaId}/edit?error=save`);
+  }
+
+  const existingImagePaths = getUniqueImagePaths(
+    (existingIdea as { image_urls?: string[] | null }).image_urls,
+    (existingIdea as { image_url?: string | null }).image_url,
+  );
+  const keptImagePaths = existingImagePaths.filter((path) => !removeImageUrls.has(path));
+
+  if (keptImagePaths.length + imageFiles.length > 4) {
+    redirect(`/ideas/${ideaId}/edit?error=image`);
+  }
+
+  let imageUrls: string[] = [];
+  try {
+    imageUrls = await uploadIdeaImages(imageFiles, user.id);
+  } catch (uploadError) {
+    console.error(uploadError);
+    redirect(`/ideas/${ideaId}/edit?error=image`);
+  }
+
+  const nextImageUrls = [...keptImagePaths, ...imageUrls].slice(0, 4);
+
   const updates: {
     body: string;
     execution_permission: ExecutionPermission;
-    image_url?: string;
+    image_url: string | null;
+    image_urls: string[];
     title: string;
     type: IdeaType;
     updated_at: string;
@@ -498,9 +559,10 @@ export async function updateIdea(ideaId: string, formData: FormData) {
     type,
     visibility,
     execution_permission: normalizedExecutionPermission,
+    image_url: nextImageUrls[0] ?? null,
+    image_urls: nextImageUrls,
     updated_at: new Date().toISOString(),
   };
-  if (imageUrl) updates.image_url = imageUrl;
 
   const { error } = await supabase
     .from("ideas")
@@ -511,6 +573,12 @@ export async function updateIdea(ideaId: string, formData: FormData) {
   if (error) {
     console.error(error);
     redirect(`/ideas/${ideaId}/edit?error=save`);
+  }
+
+  const removedPaths = existingImagePaths.filter((path) => removeImageUrls.has(path) && path.startsWith(`${user.id}/`));
+  if (removedPaths.length) {
+    const { error: removeError } = await supabase.storage.from("idea-images").remove(removedPaths);
+    if (removeError) console.error(removeError);
   }
 
   revalidatePath("/ideas");
@@ -792,4 +860,35 @@ export async function updateProfile(formData: FormData) {
 
   revalidatePath(`/profiles/${user.id}`);
   redirect(`/profiles/${user.id}`);
+}
+
+export async function updatePassword(formData: FormData) {
+  const supabase = await createClient();
+  const password = String(formData.get("password") ?? "");
+  const passwordConfirm = String(formData.get("password_confirm") ?? "");
+
+  if (password.length < 6) {
+    redirect("/auth/update-password?error=short");
+  }
+
+  if (password !== passwordConfirm) {
+    redirect("/auth/update-password?error=mismatch");
+  }
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect("/auth/forgot-password?error=session");
+  }
+
+  const { error } = await supabase.auth.updateUser({ password });
+  if (error) {
+    console.error(error);
+    redirect("/auth/update-password?error=update");
+  }
+
+  await supabase.auth.signOut();
+  redirect("/login?password=updated");
 }

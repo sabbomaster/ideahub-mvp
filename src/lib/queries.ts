@@ -24,6 +24,22 @@ type QueryBuilder = {
   then: PromiseLike<{ data: unknown[] | null }>["then"];
 };
 
+async function signIdeaImageUrls(supabase: SupabaseLikeClient, imageUrls: string[] | null | undefined, fallbackImageUrl?: string | null) {
+  const paths = [...(imageUrls ?? []), ...(fallbackImageUrl ? [fallbackImageUrl] : [])].filter(Boolean);
+  const uniquePaths = [...new Set(paths)].slice(0, 4);
+
+  if (!uniquePaths.length || !supabase.storage) return [];
+
+  const signedUrls = await Promise.all(
+    uniquePaths.map(async (path) => {
+      const { data } = await supabase.storage!.from("idea-images").createSignedUrl(path, 60 * 60);
+      return data?.signedUrl ?? null;
+    }),
+  );
+
+  return signedUrls.filter((url): url is string => Boolean(url));
+}
+
 function countBy<T extends Record<string, string>>(rows: T[] | null | undefined, key: keyof T) {
   const counts = new Map<string, number>();
   rows?.forEach((row) => counts.set(row[key], (counts.get(row[key]) ?? 0) + 1));
@@ -38,7 +54,7 @@ export async function getIdeaCards(
 
   let query = supabase
     .from("ideas")
-    .select("id,title,body,type,status,source,visibility,execution_permission,image_url,created_at,updated_at,user_id,profiles(id,username,display_name)")
+    .select("id,title,body,type,status,source,visibility,execution_permission,image_url,image_urls,created_at,updated_at,user_id,profiles(id,username,display_name)")
     .order("created_at", { ascending: false });
 
   if (options.status) {
@@ -55,9 +71,8 @@ export async function getIdeaCards(
   const typedIdeas = (ideas ?? []) as Array<Omit<IdeaCardData, "likes" | "comments" | "executions">>;
   const ideasWithImages = await Promise.all(
     typedIdeas.map(async (idea) => {
-      if (!idea.image_url || !supabase.storage) return idea;
-      const { data } = await supabase.storage.from("idea-images").createSignedUrl(idea.image_url, 60 * 60);
-      return { ...idea, image_url: data?.signedUrl ?? null };
+      const image_urls = await signIdeaImageUrls(supabase, idea.image_urls, idea.image_url);
+      return { ...idea, image_url: image_urls[0] ?? null, image_urls };
     }),
   );
   const ids = ideasWithImages.map((idea) => idea.id);

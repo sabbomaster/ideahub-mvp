@@ -56,14 +56,14 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
                       投稿
                     </Link>
                   </Button>
-                  <Button asChild variant="outline" size="sm" title="プロフィール" className="justify-start sm:h-9 sm:w-9 sm:px-0">
+                  <Button asChild variant="outline" size="sm" title="プロフィール" className="justify-center sm:h-9 sm:w-9 sm:px-0">
                     <Link href={`/profiles/${user.id}`}>
                       <UserRound className="h-4 w-4" />
                       <span className="ml-2 sm:hidden">プロフィール</span>
                     </Link>
                   </Button>
                   <form action={signOut}>
-                    <Button variant="ghost" size="sm" title="ログアウト" className="w-full justify-start sm:h-9 sm:w-9 sm:px-0">
+                    <Button variant="ghost" size="sm" title="ログアウト" className="w-full justify-center sm:h-9 sm:w-9 sm:px-0">
                       <LogOut className="h-4 w-4" />
                       <span className="ml-2 sm:hidden">ログアウト</span>
                     </Button>
