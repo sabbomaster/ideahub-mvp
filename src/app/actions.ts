@@ -855,34 +855,3 @@ export async function updateProfile(formData: FormData) {
   revalidatePath(`/profiles/${user.id}`);
   redirect(`/profiles/${user.id}`);
 }
-
-export async function updatePassword(formData: FormData) {
-  const supabase = await createClient();
-  const password = String(formData.get("password") ?? "");
-  const passwordConfirm = String(formData.get("password_confirm") ?? "");
-
-  if (password.length < 6) {
-    redirect("/auth/update-password?error=short");
-  }
-
-  if (password !== passwordConfirm) {
-    redirect("/auth/update-password?error=mismatch");
-  }
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    redirect("/auth/forgot-password?error=session");
-  }
-
-  const { error } = await supabase.auth.updateUser({ password });
-  if (error) {
-    console.error(error);
-    redirect("/auth/update-password?error=update");
-  }
-
-  await supabase.auth.signOut();
-  redirect("/login?password=updated");
-}

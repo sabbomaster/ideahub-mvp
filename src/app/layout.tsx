@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "IdeaHub MVP",
-  description: "アイデア投稿SNSのMVP",
+  description: "IdeaHub MVP",
 };
 
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
@@ -34,24 +34,24 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
               <Button asChild variant="ghost" size="sm" className="justify-start sm:justify-center">
                 <Link href="/feed">
                   <Rss className="mr-2 h-4 w-4" />
-                  公開フィード
+                  {"\u516c\u958b\u30d5\u30a3\u30fc\u30c9"}
                 </Link>
               </Button>
               {user ? (
                 <Button asChild variant="ghost" size="sm" className="justify-start sm:justify-center">
-                  <Link href="/ideas">マイアイデア</Link>
+                  <Link href="/ideas">{"\u30de\u30a4\u30a2\u30a4\u30c7\u30a2"}</Link>
                 </Button>
               ) : null}
               <Button asChild variant="ghost" size="sm" className="justify-start sm:justify-center">
                 <Link href="/seesaws">
                   <Scale className="mr-2 h-4 w-4" />
-                  シーソー
+                  {"\u30b7\u30fc\u30bd\u30fc"}
                 </Link>
               </Button>
               <Button asChild variant="ghost" size="sm" className="justify-start sm:justify-center">
                 <Link href="/feedback">
                   <HelpCircle className="mr-2 h-4 w-4" />
-                  質問・不具合報告
+                  {"\u8cea\u554f\u30fb\u5831\u544a"}
                 </Link>
               </Button>
               {user ? (
@@ -59,25 +59,25 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
                   <Button asChild size="sm" className="justify-start sm:justify-center">
                     <Link href="/ideas/new">
                       <Plus className="mr-2 h-4 w-4" />
-                      投稿
+                      {"\u6295\u7a3f"}
                     </Link>
                   </Button>
-                  <Button asChild variant="outline" size="sm" title="プロフィール" className="justify-center sm:h-9 sm:w-9 sm:px-0">
+                  <Button asChild variant="outline" size="sm" title="Profile" className="justify-center sm:h-9 sm:w-9 sm:px-0">
                     <Link href={`/profiles/${user.id}`}>
                       <UserRound className="h-4 w-4" />
-                      <span className="ml-2 sm:hidden">プロフィール</span>
+                      <span className="ml-2 sm:hidden">{"\u30d7\u30ed\u30d5\u30a3\u30fc\u30eb"}</span>
                     </Link>
                   </Button>
                   <form action={signOut}>
-                    <Button variant="ghost" size="sm" title="ログアウト" className="w-full justify-center sm:h-9 sm:w-9 sm:px-0">
+                    <Button variant="ghost" size="sm" title="Logout" className="w-full justify-center sm:h-9 sm:w-9 sm:px-0">
                       <LogOut className="h-4 w-4" />
-                      <span className="ml-2 sm:hidden">ログアウト</span>
+                      <span className="ml-2 sm:hidden">{"\u30ed\u30b0\u30a2\u30a6\u30c8"}</span>
                     </Button>
                   </form>
                 </>
               ) : (
                 <Button asChild size="sm" className="justify-start sm:justify-center">
-                  <Link href="/login">ログイン</Link>
+                  <Link href="/login">{"\u30ed\u30b0\u30a4\u30f3"}</Link>
                 </Button>
               )}
             </nav>

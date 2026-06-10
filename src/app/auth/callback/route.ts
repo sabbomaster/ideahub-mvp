@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import { ensureProfile } from "@/lib/profiles";
 import type { Database } from "@/lib/database.types";
 
 function safeNextPath(nextPath: string | null) {
@@ -41,7 +42,14 @@ export async function GET(request: NextRequest) {
   const { error } = await supabase.auth.exchangeCodeForSession(code);
   if (error) {
     console.error(error);
-    return NextResponse.redirect(new URL("/auth/forgot-password?error=callback", requestUrl.origin));
+    return NextResponse.redirect(new URL("/login?error=auth", requestUrl.origin));
+  }
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (user) {
+    await ensureProfile(supabase, user);
   }
 
   return response;
