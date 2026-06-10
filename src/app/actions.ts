@@ -451,6 +451,9 @@ export async function createIdea(formData: FormData) {
   }
 
   revalidatePath("/ideas");
+  if (visibility === "public") {
+    revalidatePath("/feed");
+  }
   redirect("/ideas");
 }
 
@@ -511,6 +514,7 @@ export async function updateIdea(ideaId: string, formData: FormData) {
   }
 
   revalidatePath("/ideas");
+  revalidatePath("/feed");
   revalidatePath(`/ideas/${ideaId}`);
   revalidatePath(`/ideas/${ideaId}/edit`);
   redirect(`/ideas/${ideaId}`);

@@ -82,6 +82,12 @@ supabase/migrations/202606100014_profile_avatar_storage_fix.sql
 
 画像アップロードには Supabase Storage の `avatars` と `idea-images` bucket が必要です。`schema.sql` または `202606100013_image_uploads.sql` / `202606100014_profile_avatar_storage_fix.sql` で作成されます。
 
+一覧表示を速くする index を追加する場合は、次の migration も実行してください。
+
+```text
+supabase/migrations/202606100015_performance_indexes.sql
+```
+
 ## Vercel デプロイ手順
 
 1. GitHub などにこのプロジェクトを push します。

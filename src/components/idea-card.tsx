@@ -21,12 +21,9 @@ export type IdeaCardData = {
   visibility?: IdeaVisibility;
   execution_permission?: ExecutionPermission;
   image_url?: string | null;
-  archived_at?: string | null;
-  hidden_at?: string | null;
-  delete_scheduled_at?: string | null;
   created_at: string;
   updated_at: string;
-  profiles: { id: string; username: string | null; display_name: string | null; credit_score: number } | null;
+  profiles: { id: string; username: string | null; display_name: string | null } | null;
   likes: { count: number }[];
   comments: { count: number }[];
   executions: { count: number }[];

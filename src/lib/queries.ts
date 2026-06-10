@@ -1,6 +1,8 @@
 import type { IdeaStatus, IdeaVisibility } from "@/lib/database.types";
 import type { IdeaCardData } from "@/components/idea-card";
 
+const defaultIdeaListLimit = 30;
+
 export type SupabaseLikeClient = {
   from: (table: string) => {
     select: (columns: string) => QueryBuilder;
@@ -36,7 +38,7 @@ export async function getIdeaCards(
 
   let query = supabase
     .from("ideas")
-    .select("id,title,body,type,status,status_before_archive,source,visibility,execution_permission,image_url,archived_at,hidden_at,delete_scheduled_at,created_at,updated_at,user_id,profiles(id,username,display_name,credit_score)")
+    .select("id,title,body,type,status,source,visibility,execution_permission,image_url,created_at,updated_at,user_id,profiles(id,username,display_name)")
     .order("created_at", { ascending: false });
 
   if (options.status) {
@@ -44,7 +46,7 @@ export async function getIdeaCards(
   } else if (!options.includeNonPublic) {
     query = query.eq("status", "active");
   }
-  if (options.limit) query = query.limit(options.limit);
+  if (options.limit || !options.ids) query = query.limit(options.limit ?? defaultIdeaListLimit);
   if (options.userId) query = query.eq("user_id", options.userId);
   if (options.ids) query = query.in("id", options.ids);
   if (options.visibility) query = query.eq("visibility", options.visibility);
@@ -83,13 +85,14 @@ export async function getIdeaCards(
 export async function getMyExecutedIdeaCards(
   supabase: SupabaseLikeClient,
   userId: string,
+  limit = defaultIdeaListLimit,
 ): Promise<IdeaCardData[]> {
   const [ownCompleted, executionRows] = await Promise.all([
-    getIdeaCards(supabase, { status: "completed", userId }),
-    supabase.from("executions").select("idea_id").eq("user_id", userId),
+    getIdeaCards(supabase, { limit, status: "completed", userId }),
+    supabase.from("executions").select("idea_id").eq("user_id", userId).limit(limit),
   ]);
   const executionIdeaIds = ((executionRows.data ?? []) as { idea_id: string }[]).map((row) => row.idea_id);
-  const reportedIdeas = await getIdeaCards(supabase, { ids: executionIdeaIds, includeNonPublic: true });
+  const reportedIdeas = await getIdeaCards(supabase, { ids: executionIdeaIds.slice(0, limit), includeNonPublic: true });
   const merged = new Map<string, IdeaCardData>();
 
   [...ownCompleted, ...reportedIdeas].forEach((idea) => {
@@ -98,5 +101,5 @@ export async function getMyExecutedIdeaCards(
     }
   });
 
-  return [...merged.values()].sort((a, b) => Date.parse(b.updated_at) - Date.parse(a.updated_at));
+  return [...merged.values()].sort((a, b) => Date.parse(b.updated_at) - Date.parse(a.updated_at)).slice(0, limit);
 }
