@@ -72,6 +72,16 @@ create table public.reports (
   created_at timestamptz not null default now()
 );
 
+create table public.feedback_reports (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references public.profiles(id) on delete set null,
+  type text not null check (type in ('bug', 'question', 'improvement', 'other')),
+  content text not null check (length(trim(content)) > 0),
+  page_url text,
+  contact text,
+  created_at timestamptz not null default now()
+);
+
 create table public.mental_seesaws (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.profiles(id) on delete cascade,
@@ -257,6 +267,7 @@ grant select, insert, update, delete on table public.comments to authenticated;
 grant select, insert, delete on table public.likes to authenticated;
 grant select, insert, delete on table public.executions to authenticated;
 grant insert on table public.reports to authenticated;
+grant insert on table public.feedback_reports to anon, authenticated;
 grant usage on schema storage to anon, authenticated;
 grant select on table storage.buckets to anon, authenticated;
 grant select, insert, update, delete on table storage.objects to authenticated;
@@ -268,6 +279,7 @@ alter table public.comments enable row level security;
 alter table public.likes enable row level security;
 alter table public.executions enable row level security;
 alter table public.reports enable row level security;
+alter table public.feedback_reports enable row level security;
 alter table public.mental_seesaws enable row level security;
 alter table public.mental_seesaw_items enable row level security;
 alter table public.mental_seesaw_suggestions enable row level security;
@@ -424,6 +436,12 @@ for delete using (auth.uid() = user_id);
 create policy "users can create reports" on public.reports
 for insert with check (auth.uid() = reporter_id);
 
+create policy "anyone can create feedback reports" on public.feedback_reports
+for insert with check (
+  user_id is null
+  or auth.uid() = user_id
+);
+
 create policy "owners can read mental seesaws" on public.mental_seesaws
 for select using (auth.uid() = user_id);
 
@@ -492,6 +510,7 @@ create index ideas_archived_status_created_at_idx on public.ideas(archived_at, s
 create index ideas_visibility_status_created_at_idx on public.ideas(visibility, status, created_at desc);
 create index ideas_user_status_created_at_idx on public.ideas(user_id, status, created_at desc);
 create index ideas_user_updated_at_idx on public.ideas(user_id, updated_at desc);
+create index feedback_reports_created_at_idx on public.feedback_reports(created_at desc);
 create index comments_idea_id_idx on public.comments(idea_id);
 create index comments_user_created_at_idx on public.comments(user_id, created_at desc);
 create index likes_target_idx on public.likes(target_type, target_id);

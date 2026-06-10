@@ -100,6 +100,12 @@ supabase/migrations/202606100016_private_mental_seesaws.sql
 supabase/migrations/202606100017_idea_multiple_images.sql
 ```
 
+質問・不具合報告フォームを使う場合は、次の migration も実行してください。
+
+```text
+supabase/migrations/202606100018_feedback_reports.sql
+```
+
 ## Vercel デプロイ手順
 
 1. GitHub などにこのプロジェクトを push します。

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Lightbulb, LogOut, Plus, Rss, Scale, UserRound } from "lucide-react";
+import { HelpCircle, Lightbulb, LogOut, Plus, Rss, Scale, UserRound } from "lucide-react";
 import { signOut } from "@/app/actions";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/server";
@@ -46,6 +46,12 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
                 <Link href="/seesaws">
                   <Scale className="mr-2 h-4 w-4" />
                   シーソー
+                </Link>
+              </Button>
+              <Button asChild variant="ghost" size="sm" className="justify-start sm:justify-center">
+                <Link href="/feedback">
+                  <HelpCircle className="mr-2 h-4 w-4" />
+                  質問・不具合報告
                 </Link>
               </Button>
               {user ? (

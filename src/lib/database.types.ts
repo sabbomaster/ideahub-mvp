@@ -7,6 +7,7 @@ export type ExecutionKind = "self" | "report";
 export type MentalSeesawItemKind = "positive" | "negative";
 export type LikeTargetType = "idea" | "comment";
 export type ReportTargetType = "idea" | "comment" | "profile";
+export type FeedbackReportType = "bug" | "question" | "improvement" | "other";
 
 export type Profile = {
   id: string;
@@ -81,6 +82,16 @@ export type MentalSeesawSuggestion = {
   created_at: string;
 };
 
+export type FeedbackReport = {
+  id: string;
+  user_id: string | null;
+  type: FeedbackReportType;
+  content: string;
+  page_url: string | null;
+  contact: string | null;
+  created_at: string;
+};
+
 export type Database = {
   public: {
     Tables: {
@@ -152,6 +163,12 @@ export type Database = {
           target_id: string;
           reason: string;
         };
+        Update: never;
+        Relationships: [];
+      };
+      feedback_reports: {
+        Row: FeedbackReport;
+        Insert: Omit<FeedbackReport, "id" | "created_at"> & Partial<Pick<FeedbackReport, "id" | "created_at">>;
         Update: never;
         Relationships: [];
       };
