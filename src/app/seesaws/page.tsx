@@ -28,18 +28,18 @@ export default async function MentalSeesawsPage() {
   }>;
 
   return (
-    <div className="container space-y-6 py-8">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="flex items-center gap-2 text-3xl font-bold tracking-normal">
-            <Scale className="h-7 w-7 text-primary" />
+    <div className="container space-y-6 py-6 sm:py-8">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="flex items-center gap-2 break-words text-3xl font-bold tracking-normal">
+            <Scale className="h-7 w-7 shrink-0 text-primary" />
             メンタルシーソー
           </h1>
-          <p className="mt-2 text-muted-foreground">
+          <p className="mt-2 text-sm leading-6 text-muted-foreground sm:text-base">
             不満・不安・期待・改善案を、重りとして外に出して整理します。
           </p>
         </div>
-        <Button asChild>
+        <Button asChild className="w-full sm:w-auto">
           <Link href="/seesaws/new">
             <Plus className="mr-2 h-4 w-4" />
             議題を作る
@@ -50,13 +50,13 @@ export default async function MentalSeesawsPage() {
       <div className="grid gap-4">
         {seesaws.length ? (
           seesaws.map((seesaw) => (
-            <Card key={seesaw.id} className="transition-colors hover:border-primary/40">
+            <Card key={seesaw.id} className="w-full min-w-0 transition-colors hover:border-primary/40">
               <CardHeader>
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge variant="outline">思考整理</Badge>
                   <span className="text-sm text-muted-foreground">最終更新 {formatDate(seesaw.updated_at)}</span>
                 </div>
-                <CardTitle className="leading-snug">
+                <CardTitle className="break-words leading-snug">
                   <Link href={`/seesaws/${seesaw.id}`} className="hover:text-primary">
                     {seesaw.title}
                   </Link>
@@ -64,11 +64,11 @@ export default async function MentalSeesawsPage() {
               </CardHeader>
               <CardContent className="space-y-3 text-sm text-muted-foreground">
                 {seesaw.description || seesaw.context ? (
-                  <p className="line-clamp-2 whitespace-pre-wrap">{seesaw.description || seesaw.context}</p>
+                  <p className="line-clamp-2 whitespace-pre-wrap break-words">{seesaw.description || seesaw.context}</p>
                 ) : null}
-                <div>
-                  {seesaw.profiles?.display_name || seesaw.profiles?.username || "匿名ユーザー"}
-                  {seesaw.next_action ? <span className="ml-3">次: {seesaw.next_action}</span> : null}
+                <div className="flex flex-col gap-1 sm:flex-row sm:flex-wrap sm:gap-3">
+                  <span>{seesaw.profiles?.display_name || seesaw.profiles?.username || "匿名ユーザー"}</span>
+                  {seesaw.next_action ? <span>次: {seesaw.next_action}</span> : null}
                 </div>
               </CardContent>
             </Card>

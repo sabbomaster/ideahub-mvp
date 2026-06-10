@@ -45,20 +45,22 @@ export default async function IdeasPage({ searchParams }: { searchParams: Promis
   const ideas = ideasByBox[currentBox];
 
   return (
-    <div className="container space-y-6 py-8">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-3xl font-bold tracking-normal">マイアイデア管理</h1>
-          <p className="mt-2 text-muted-foreground">自分が投稿したアイデア、実行済み、アーカイブを管理します。</p>
+    <div className="container space-y-6 py-6 sm:py-8">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="break-words text-3xl font-bold tracking-normal">マイアイデア管理</h1>
+          <p className="mt-2 text-sm leading-6 text-muted-foreground sm:text-base">
+            自分が投稿したアイデア、実行済み、アーカイブを管理します。
+          </p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Button asChild variant="outline">
+        <div className="grid gap-2 sm:flex sm:flex-wrap">
+          <Button asChild variant="outline" className="w-full sm:w-auto">
             <Link href="/feed">
               <Rss className="mr-2 h-4 w-4" />
               公開フィード
             </Link>
           </Button>
-          <Button asChild>
+          <Button asChild className="w-full sm:w-auto">
             <Link href="/ideas/new">
               <Plus className="mr-2 h-4 w-4" />
               投稿する
@@ -66,12 +68,18 @@ export default async function IdeasPage({ searchParams }: { searchParams: Promis
           </Button>
         </div>
       </div>
-      <div className="flex flex-wrap gap-2 rounded-md border bg-card p-2">
+      <div className="grid grid-cols-1 gap-2 rounded-md border bg-card p-2 sm:grid-cols-3 md:flex md:flex-wrap">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = currentBox === tab.key;
           return (
-            <Button key={tab.key} asChild variant={isActive ? "default" : "ghost"} size="sm" className={cn("gap-2", isActive ? "" : "text-muted-foreground")}>
+            <Button
+              key={tab.key}
+              asChild
+              variant={isActive ? "default" : "ghost"}
+              size="sm"
+              className={cn("w-full justify-start gap-2 md:w-auto md:justify-center", isActive ? "" : "text-muted-foreground")}
+            >
               <Link href={tab.href}>
                 <Icon className="h-4 w-4" />
                 {tab.label} {counts[tab.key]}
@@ -81,7 +89,11 @@ export default async function IdeasPage({ searchParams }: { searchParams: Promis
         })}
       </div>
       <div className="grid gap-4">
-        {ideas.length ? ideas.map((idea) => <IdeaCard key={idea.id} currentUserId={user.id} idea={idea} showExecutionReportAction={false} />) : <p>このボックスにはまだアイデアがありません。</p>}
+        {ideas.length ? (
+          ideas.map((idea) => <IdeaCard key={idea.id} currentUserId={user.id} idea={idea} showExecutionReportAction={false} />)
+        ) : (
+          <p>このボックスにはまだアイデアがありません。</p>
+        )}
       </div>
     </div>
   );

@@ -23,26 +23,26 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
     <html lang="ja">
       <body>
         <header className="border-b bg-card/90 backdrop-blur">
-          <div className="container flex h-16 items-center justify-between gap-4">
-            <Link href="/" className="flex items-center gap-2 font-semibold">
+          <div className="container flex flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:py-0">
+            <Link href="/" className="flex min-h-10 items-center gap-2 font-semibold">
               <span className="flex h-9 w-9 items-center justify-center rounded-md bg-primary text-primary-foreground">
                 <Lightbulb className="h-5 w-5" />
               </span>
               IdeaHub
             </Link>
-            <nav className="flex items-center gap-2">
-              <Button asChild variant="ghost" size="sm">
+            <nav className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center sm:justify-end">
+              <Button asChild variant="ghost" size="sm" className="justify-start sm:justify-center">
                 <Link href="/feed">
                   <Rss className="mr-2 h-4 w-4" />
                   公開フィード
                 </Link>
               </Button>
               {user ? (
-                <Button asChild variant="ghost" size="sm">
+                <Button asChild variant="ghost" size="sm" className="justify-start sm:justify-center">
                   <Link href="/ideas">マイアイデア</Link>
                 </Button>
               ) : null}
-              <Button asChild variant="ghost" size="sm">
+              <Button asChild variant="ghost" size="sm" className="justify-start sm:justify-center">
                 <Link href="/seesaws">
                   <Scale className="mr-2 h-4 w-4" />
                   シーソー
@@ -50,25 +50,27 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
               </Button>
               {user ? (
                 <>
-                  <Button asChild size="sm">
+                  <Button asChild size="sm" className="justify-start sm:justify-center">
                     <Link href="/ideas/new">
                       <Plus className="mr-2 h-4 w-4" />
                       投稿
                     </Link>
                   </Button>
-                  <Button asChild variant="outline" size="icon" title="プロフィール">
+                  <Button asChild variant="outline" size="sm" title="プロフィール" className="justify-start sm:h-9 sm:w-9 sm:px-0">
                     <Link href={`/profiles/${user.id}`}>
                       <UserRound className="h-4 w-4" />
+                      <span className="ml-2 sm:hidden">プロフィール</span>
                     </Link>
                   </Button>
                   <form action={signOut}>
-                    <Button variant="ghost" size="icon" title="ログアウト">
+                    <Button variant="ghost" size="sm" title="ログアウト" className="w-full justify-start sm:h-9 sm:w-9 sm:px-0">
                       <LogOut className="h-4 w-4" />
+                      <span className="ml-2 sm:hidden">ログアウト</span>
                     </Button>
                   </form>
                 </>
               ) : (
-                <Button asChild size="sm">
+                <Button asChild size="sm" className="justify-start sm:justify-center">
                   <Link href="/login">ログイン</Link>
                 </Button>
               )}

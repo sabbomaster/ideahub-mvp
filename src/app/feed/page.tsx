@@ -14,14 +14,14 @@ export default async function FeedPage() {
   const ideas = await getIdeaCards(supabase as unknown as SupabaseLikeClient, { status: "active", visibility: "public" });
 
   return (
-    <div className="container space-y-6 py-8">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-3xl font-bold tracking-normal">公開フィード</h1>
-          <p className="mt-2 text-muted-foreground">全ユーザーの公開アイデアを見つける場所です。</p>
+    <div className="container space-y-6 py-6 sm:py-8">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="break-words text-3xl font-bold tracking-normal">公開フィード</h1>
+          <p className="mt-2 text-sm leading-6 text-muted-foreground sm:text-base">全ユーザーの公開アイデアを見つける場所です。</p>
         </div>
         {user ? (
-          <Button asChild>
+          <Button asChild className="w-full sm:w-auto">
             <Link href="/ideas/new">
               <Plus className="mr-2 h-4 w-4" />
               投稿する
