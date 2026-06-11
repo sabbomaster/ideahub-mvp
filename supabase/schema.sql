@@ -82,6 +82,18 @@ create table public.feedback_reports (
   created_at timestamptz not null default now()
 );
 
+create table public.notifications (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  actor_id uuid references public.profiles(id) on delete set null,
+  idea_id uuid not null references public.ideas(id) on delete cascade,
+  type text not null check (type in ('comment', 'improvement', 'execution')),
+  title text not null,
+  body text,
+  read_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
 create table public.mental_seesaws (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.profiles(id) on delete cascade,
@@ -268,6 +280,7 @@ grant select, insert, delete on table public.likes to authenticated;
 grant select, insert, delete on table public.executions to authenticated;
 grant insert on table public.reports to authenticated;
 grant insert on table public.feedback_reports to anon, authenticated;
+grant select, insert, update, delete on table public.notifications to authenticated;
 grant usage on schema storage to anon, authenticated;
 grant select on table storage.buckets to anon, authenticated;
 grant select, insert, update, delete on table storage.objects to authenticated;
@@ -280,6 +293,7 @@ alter table public.likes enable row level security;
 alter table public.executions enable row level security;
 alter table public.reports enable row level security;
 alter table public.feedback_reports enable row level security;
+alter table public.notifications enable row level security;
 alter table public.mental_seesaws enable row level security;
 alter table public.mental_seesaw_items enable row level security;
 alter table public.mental_seesaw_suggestions enable row level security;
@@ -442,6 +456,27 @@ for insert with check (
   or auth.uid() = user_id
 );
 
+create policy "users can read own notifications" on public.notifications
+for select using (auth.uid() = user_id);
+
+create policy "users can create notifications for idea owners" on public.notifications
+for insert with check (
+  auth.uid() = actor_id
+  and auth.uid() <> user_id
+  and exists (
+    select 1
+    from public.ideas
+    where ideas.id = notifications.idea_id
+      and ideas.user_id = notifications.user_id
+  )
+);
+
+create policy "users can update own notifications" on public.notifications
+for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+create policy "users can delete own notifications" on public.notifications
+for delete using (auth.uid() = user_id);
+
 create policy "owners can read mental seesaws" on public.mental_seesaws
 for select using (auth.uid() = user_id);
 
@@ -511,6 +546,8 @@ create index ideas_visibility_status_created_at_idx on public.ideas(visibility, 
 create index ideas_user_status_created_at_idx on public.ideas(user_id, status, created_at desc);
 create index ideas_user_updated_at_idx on public.ideas(user_id, updated_at desc);
 create index feedback_reports_created_at_idx on public.feedback_reports(created_at desc);
+create index notifications_user_created_at_idx on public.notifications(user_id, created_at desc);
+create index notifications_user_unread_idx on public.notifications(user_id, read_at) where read_at is null;
 create index comments_idea_id_idx on public.comments(idea_id);
 create index comments_user_created_at_idx on public.comments(user_id, created_at desc);
 create index likes_target_idx on public.likes(target_type, target_id);

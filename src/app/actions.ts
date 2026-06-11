@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { ensureProfile } from "@/lib/profiles";
 import { createClient } from "@/lib/supabase/server";
 import { hasExternalLink, isLowTrust, trustLimits } from "@/lib/trust";
-import type { ExecutionPermission, IdeaStatus, IdeaType, IdeaVisibility, LikeTargetType, MentalSeesawItemKind, ReportTargetType } from "@/lib/database.types";
+import type { ExecutionPermission, IdeaStatus, IdeaType, IdeaVisibility, LikeTargetType, MentalSeesawItemKind, NotificationType, ReportTargetType } from "@/lib/database.types";
 
 async function requireUser() {
   const supabase = await createClient();
@@ -29,6 +29,43 @@ async function getCreditScore(supabase: Awaited<ReturnType<typeof createClient>>
 
 function minutesAgo(minutes: number) {
   return new Date(Date.now() - minutes * 60 * 1000).toISOString();
+}
+
+async function createIdeaNotification({
+  supabase,
+  actorId,
+  ideaId,
+  type,
+  title,
+  body,
+}: {
+  supabase: Awaited<ReturnType<typeof createClient>>;
+  actorId: string;
+  ideaId: string;
+  type: NotificationType;
+  title: string;
+  body?: string | null;
+}) {
+  const { data: idea, error: ideaError } = await supabase.from("ideas").select("id,user_id").eq("id", ideaId).single();
+
+  if (ideaError || !idea) {
+    console.error(ideaError);
+    return;
+  }
+
+  const ownerId = (idea as { user_id: string }).user_id;
+  if (ownerId === actorId) return;
+
+  const { error } = await supabase.from("notifications").insert({
+    user_id: ownerId,
+    actor_id: actorId,
+    idea_id: ideaId,
+    type,
+    title,
+    body: body ?? null,
+  });
+
+  if (error) console.error(error);
 }
 
 const imageTypes = new Map([
@@ -729,7 +766,21 @@ export async function addComment(ideaId: string, formData: FormData) {
     }
   }
 
-  await supabase.from("comments").insert({ idea_id: ideaId, user_id: user.id, body });
+  const { error } = await supabase.from("comments").insert({ idea_id: ideaId, user_id: user.id, body });
+  if (error) {
+    console.error(error);
+    redirect(`/ideas/${ideaId}?error=comment`);
+  }
+
+  await createIdeaNotification({
+    supabase,
+    actorId: user.id,
+    ideaId,
+    type: "comment",
+    title: "コメント・改善提案が届きました",
+    body: body.slice(0, 120),
+  });
+
   revalidatePath(`/ideas/${ideaId}`);
 }
 
@@ -800,8 +851,74 @@ export async function markExecutionReport(ideaId: string, formData: FormData) {
 
   const note = String(formData.get("note") ?? "").trim() || null;
   await supabase.from("executions").delete().eq("idea_id", ideaId).eq("user_id", user.id);
-  await supabase.from("executions").insert({ idea_id: ideaId, user_id: user.id, kind: "report", note });
+  const { error } = await supabase.from("executions").insert({ idea_id: ideaId, user_id: user.id, kind: "report", note });
+  if (error) {
+    console.error(error);
+    redirect(`/ideas/${ideaId}?error=execution`);
+  }
+
+  await createIdeaNotification({
+    supabase,
+    actorId: user.id,
+    ideaId,
+    type: "execution",
+    title: "実行報告が届きました",
+    body: note?.slice(0, 120) ?? null,
+  });
+
   revalidatePath(`/ideas/${ideaId}`);
+}
+
+export async function markNotificationRead(notificationId: string) {
+  const { supabase, user } = await requireUser();
+  const { error } = await supabase
+    .from("notifications")
+    .update({ read_at: new Date().toISOString() })
+    .eq("id", notificationId)
+    .eq("user_id", user.id);
+
+  if (error) console.error(error);
+
+  revalidatePath("/notifications");
+  revalidatePath("/");
+}
+
+export async function markAllNotificationsRead() {
+  const { supabase, user } = await requireUser();
+  const { error } = await supabase
+    .from("notifications")
+    .update({ read_at: new Date().toISOString() })
+    .eq("user_id", user.id)
+    .is("read_at", null);
+
+  if (error) console.error(error);
+
+  revalidatePath("/notifications");
+  revalidatePath("/");
+}
+
+export async function openNotification(notificationId: string) {
+  const { supabase, user } = await requireUser();
+  const { data: notification, error: notificationError } = await supabase
+    .from("notifications")
+    .select("idea_id")
+    .eq("id", notificationId)
+    .eq("user_id", user.id)
+    .single();
+
+  if (notificationError || !notification) {
+    console.error(notificationError);
+    redirect("/notifications");
+  }
+
+  await supabase
+    .from("notifications")
+    .update({ read_at: new Date().toISOString() })
+    .eq("id", notificationId)
+    .eq("user_id", user.id);
+
+  revalidatePath("/notifications");
+  redirect(`/ideas/${(notification as { idea_id: string }).idea_id}`);
 }
 
 export async function markExecuted(ideaId: string, formData: FormData) {
