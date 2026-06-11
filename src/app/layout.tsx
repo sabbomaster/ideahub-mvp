@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Bell, HelpCircle, Lightbulb, LogOut, Plus, Rss, Scale, UserRound } from "lucide-react";
+import { HelpCircle, Lightbulb, LogOut, Plus, Rss, Scale, UserRound } from "lucide-react";
 import { signOut } from "@/app/actions";
+import { NotificationBell } from "@/components/notification-bell";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/server";
 import "./globals.css";
@@ -65,17 +66,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
                       {"\u6295\u7a3f"}
                     </Link>
                   </Button>
-                  <Button asChild variant="outline" size="sm" title="Notifications" className="relative justify-center sm:h-9 sm:w-9 sm:px-0">
-                    <Link href="/notifications">
-                      <Bell className="h-4 w-4" />
-                      {unreadNotificationCount ? (
-                        <span className="absolute -right-1 -top-1 min-w-5 rounded-full bg-destructive px-1 text-center text-[11px] leading-5 text-destructive-foreground">
-                          {unreadNotificationCount > 99 ? "99+" : unreadNotificationCount}
-                        </span>
-                      ) : null}
-                      <span className="ml-2 sm:hidden">通知</span>
-                    </Link>
-                  </Button>
+                  <NotificationBell initialUnreadCount={unreadNotificationCount ?? 0} userId={user.id} />
                   <Button asChild variant="outline" size="sm" title="Profile" className="justify-center sm:h-9 sm:w-9 sm:px-0">
                     <Link href={`/profiles/${user.id}`}>
                       <UserRound className="h-4 w-4" />
