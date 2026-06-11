@@ -95,9 +95,19 @@ export default async function ProfilePage({
                   <Input id="avatar" name="avatar" type="file" accept="image/png,image/jpeg,image/webp,image/gif" />
                   <p className="text-xs text-muted-foreground">PNG / JPEG / WebP / GIF、2MBまで。</p>
                 </div>
-                <Input name="username" placeholder="ユーザー名" defaultValue={typedProfile?.username ?? ""} />
-                <Input name="display_name" placeholder="表示名" defaultValue={typedProfile?.display_name ?? ""} />
-                <Textarea name="bio" placeholder="自己紹介" defaultValue={typedProfile?.bio ?? ""} />
+                <input type="hidden" name="username" value={typedProfile?.username ?? ""} />
+                <div className="space-y-2">
+                  <label htmlFor="display_name" className="text-sm font-medium">
+                    表示名
+                  </label>
+                  <Input id="display_name" name="display_name" placeholder="表示名" defaultValue={typedProfile?.display_name ?? ""} />
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="bio" className="text-sm font-medium">
+                    自己紹介
+                  </label>
+                  <Textarea id="bio" name="bio" placeholder="自己紹介" defaultValue={typedProfile?.bio ?? ""} />
+                </div>
                 <Button type="submit">保存</Button>
               </form>
             </CardContent>
