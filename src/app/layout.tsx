@@ -4,14 +4,26 @@ import { HelpCircle, Lightbulb, LogOut, Plus, Rss, Scale, UserRound } from "luci
 import { signOut } from "@/app/actions";
 import { NotificationBell } from "@/components/notification-bell";
 import { Button } from "@/components/ui/button";
+import { getSiteUrl } from "@/lib/site-url";
 import { createClient } from "@/lib/supabase/server";
 import "./globals.css";
 
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
+  metadataBase: new URL(getSiteUrl()),
   title: "IdeaHub MVP",
   description: "IdeaHub MVP",
+  alternates: {
+    canonical: "/",
+  },
+  openGraph: {
+    title: "IdeaHub MVP",
+    description: "IdeaHub MVP",
+    url: "/",
+    siteName: "IdeaHub",
+    type: "website",
+  },
 };
 
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { ensureProfile } from "@/lib/profiles";
+import { getAppOrigin } from "@/lib/site-url";
 import type { Database } from "@/lib/database.types";
 
 function safeNextPath(nextPath: string | null) {
@@ -15,11 +16,12 @@ export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get("code");
   const nextPath = safeNextPath(requestUrl.searchParams.get("next"));
-  const redirectUrl = new URL(nextPath, requestUrl.origin);
+  const appOrigin = getAppOrigin(requestUrl.origin);
+  const redirectUrl = new URL(nextPath, appOrigin);
   const response = NextResponse.redirect(redirectUrl);
 
   if (!code) {
-    return NextResponse.redirect(new URL("/login", requestUrl.origin));
+    return NextResponse.redirect(new URL("/login", appOrigin));
   }
 
   const supabase = createServerClient<Database>(
@@ -42,7 +44,7 @@ export async function GET(request: NextRequest) {
   const { error } = await supabase.auth.exchangeCodeForSession(code);
   if (error) {
     console.error(error);
-    return NextResponse.redirect(new URL("/login?error=auth", requestUrl.origin));
+    return NextResponse.redirect(new URL("/login?error=auth", appOrigin));
   }
 
   const {

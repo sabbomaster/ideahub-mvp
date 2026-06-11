@@ -32,12 +32,14 @@
 ```env
 NEXT_PUBLIC_SUPABASE_URL=https://your-project-ref.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-public-key
+NEXT_PUBLIC_SITE_URL=https://ideahub.jp
 ```
 
 必要な環境変数:
 
 - `NEXT_PUBLIC_SUPABASE_URL`: Supabase Project Settings > API の Project URL
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`: Supabase Project Settings > API の anon public key
+- `NEXT_PUBLIC_SITE_URL`: アプリの本番URL。独自ドメイン利用時は `https://ideahub.jp`
 
 使わない環境変数:
 
@@ -64,6 +66,7 @@ supabase start
 ```env
 NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-local-anon-key
+NEXT_PUBLIC_SITE_URL=https://ideahub.jp
 ```
 
 ローカルの URL と anon key は `supabase status` で確認できます。
@@ -114,8 +117,9 @@ supabase/migrations/202606100018_feedback_reports.sql
 4. Environment Variables に次を設定します。
    - `NEXT_PUBLIC_SUPABASE_URL`
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - `NEXT_PUBLIC_SITE_URL=https://ideahub.jp`
 5. Deploy を実行します。
-6. 発行された Vercel URL を Supabase Auth の URL 設定に追加します。
+6. Supabase Auth の URL 設定は独自ドメイン `https://ideahub.jp` に統一します。
 
 Build Command は通常 `npm run build`、Install Command は `npm install` のままで動きます。
 
@@ -133,22 +137,20 @@ Authentication > URL Configuration
 
 設定:
 
-- Site URL: `https://your-vercel-domain.vercel.app`
+- Site URL: `https://ideahub.jp`
 - Redirect URLs:
-  - `https://your-vercel-domain.vercel.app/**`
-  - `https://your-vercel-domain.vercel.app/auth/callback`
-  - 独自ドメインを使う場合: `https://your-domain.com/**`
-  - 独自ドメインを使う場合: `https://your-domain.com/auth/callback`
+  - `https://ideahub.jp/**`
+  - `https://ideahub.jp/auth/callback`
   - ローカル確認も続ける場合: `http://localhost:3000/**`
   - ローカル確認も続ける場合: `http://localhost:3000/auth/callback`
 
-パスワード再設定メールは、開いているサイトの origin を使って `/auth/callback?next=/auth/update-password` に戻します。callback route で Supabase Auth の `code` を cookie セッションに交換してから、パスワード更新画面へ遷移します。本番では Vercel URL、独自ドメイン利用時は独自ドメインを Supabase Auth の Redirect URLs に追加してください。
+Google OAuth は `NEXT_PUBLIC_SITE_URL` を使って `/auth/callback` に戻します。ローカル開発中に `localhost` からログインした場合のみ、ローカルの `/auth/callback` に戻ります。本番では Vercel デフォルトドメインではなく、独自ドメイン `https://ideahub.jp` を Supabase Auth の Site URL / Redirect URLs に設定してください。
 
 ## localhost 依存について
 
 アプリコード内に本番動作を妨げる localhost 固定 URL は置かない方針です。Supabase の接続先は環境変数で切り替えます。
 
-ローカル用の `http://127.0.0.1:54321` や `http://localhost:3000` は README と `.env.local` のみで使います。本番では Vercel の環境変数に Supabase 本番プロジェクトの URL と anon key を設定してください。
+ローカル用の `http://127.0.0.1:54321` や `http://localhost:3000` は README と `.env.local` のみで使います。本番では Vercel の環境変数に Supabase 本番プロジェクトの URL、anon key、`NEXT_PUBLIC_SITE_URL=https://ideahub.jp` を設定してください。
 
 ## 本番確認チェックリスト
 
