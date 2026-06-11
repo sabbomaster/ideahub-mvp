@@ -12,6 +12,7 @@ export default async function FeedPage() {
     data: { user },
   } = await supabase.auth.getUser();
   const ideas = await getIdeaCards(supabase as unknown as SupabaseLikeClient, {
+    orderBy: "updated_at",
     range: { from: 0, to: 19 },
     status: "active",
     visibility: "public",

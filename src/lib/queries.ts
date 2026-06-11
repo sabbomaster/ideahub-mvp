@@ -3,6 +3,8 @@ import type { IdeaCardData } from "@/components/idea-card";
 
 const defaultIdeaListLimit = 30;
 
+export type IdeaSortColumn = "created_at" | "title" | "updated_at";
+
 export type SupabaseLikeClient = {
   from: (table: string) => {
     select: (columns: string) => QueryBuilder;
@@ -53,6 +55,8 @@ export async function getIdeaCards(
     ids?: string[];
     includeNonPublic?: boolean;
     limit?: number;
+    orderBy?: IdeaSortColumn;
+    orderAscending?: boolean;
     range?: { from: number; to: number };
     status?: IdeaStatus;
     userId?: string;
@@ -64,7 +68,7 @@ export async function getIdeaCards(
   let query = supabase
     .from("ideas")
     .select("id,title,body,type,status,source,visibility,execution_permission,image_url,image_urls,created_at,updated_at,user_id,profiles(id,username,display_name)")
-    .order("created_at", { ascending: false });
+    .order(options.orderBy ?? "created_at", { ascending: options.orderAscending ?? false });
 
   if (options.status) {
     query = query.eq("status", options.status);

@@ -39,6 +39,7 @@ export async function loadMorePublicFeedIdeas(from: number) {
   const safeFrom = Number.isFinite(from) ? Math.max(0, Math.floor(from)) : 0;
 
   return getIdeaCards(supabase as unknown as SupabaseLikeClient, {
+    orderBy: "updated_at",
     range: { from: safeFrom, to: safeFrom + publicFeedPageSize - 1 },
     status: "active",
     visibility: "public",
@@ -795,6 +796,7 @@ export async function addComment(ideaId: string, formData: FormData) {
     body: body.slice(0, 120),
   });
 
+  revalidatePath("/feed");
   revalidatePath(`/ideas/${ideaId}`);
 }
 
@@ -880,6 +882,7 @@ export async function markExecutionReport(ideaId: string, formData: FormData) {
     body: note?.slice(0, 120) ?? null,
   });
 
+  revalidatePath("/feed");
   revalidatePath(`/ideas/${ideaId}`);
 }
 

@@ -247,6 +247,28 @@ create trigger executions_add_credit
 after insert on public.executions
 for each row execute function public.credit_for_execution();
 
+create or replace function public.touch_idea_activity_updated_at()
+returns trigger
+language plpgsql
+security definer set search_path = public
+as $$
+begin
+  update public.ideas
+  set updated_at = now()
+  where id = new.idea_id;
+
+  return new;
+end;
+$$;
+
+create trigger comments_touch_idea_updated_at
+after insert on public.comments
+for each row execute function public.touch_idea_activity_updated_at();
+
+create trigger executions_touch_idea_updated_at
+after insert on public.executions
+for each row execute function public.touch_idea_activity_updated_at();
+
 create or replace function public.credit_for_imagined_tip(target_idea_id uuid)
 returns void
 language plpgsql
@@ -543,6 +565,7 @@ create index ideas_created_at_idx on public.ideas(created_at desc);
 create index ideas_status_created_at_idx on public.ideas(status, created_at desc);
 create index ideas_archived_status_created_at_idx on public.ideas(archived_at, status, created_at desc);
 create index ideas_visibility_status_created_at_idx on public.ideas(visibility, status, created_at desc);
+create index ideas_visibility_status_updated_at_idx on public.ideas(visibility, status, updated_at desc);
 create index ideas_user_status_created_at_idx on public.ideas(user_id, status, created_at desc);
 create index ideas_user_updated_at_idx on public.ideas(user_id, updated_at desc);
 create index feedback_reports_created_at_idx on public.feedback_reports(created_at desc);
