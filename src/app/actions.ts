@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { ensureProfile } from "@/lib/profiles";
 import { createClient } from "@/lib/supabase/server";
 import { hasExternalLink, isLowTrust, trustLimits } from "@/lib/trust";
+import { getIdeaCards, type SupabaseLikeClient } from "@/lib/queries";
 import type { ExecutionPermission, IdeaStatus, IdeaType, IdeaVisibility, LikeTargetType, MentalSeesawItemKind, NotificationType, ReportTargetType } from "@/lib/database.types";
 
 async function requireUser() {
@@ -29,6 +30,19 @@ async function getCreditScore(supabase: Awaited<ReturnType<typeof createClient>>
 
 function minutesAgo(minutes: number) {
   return new Date(Date.now() - minutes * 60 * 1000).toISOString();
+}
+
+const publicFeedPageSize = 20;
+
+export async function loadMorePublicFeedIdeas(from: number) {
+  const supabase = await createClient();
+  const safeFrom = Number.isFinite(from) ? Math.max(0, Math.floor(from)) : 0;
+
+  return getIdeaCards(supabase as unknown as SupabaseLikeClient, {
+    range: { from: safeFrom, to: safeFrom + publicFeedPageSize - 1 },
+    status: "active",
+    visibility: "public",
+  });
 }
 
 async function createIdeaNotification({

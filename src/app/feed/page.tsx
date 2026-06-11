@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Plus } from "lucide-react";
+import { PublicFeedList } from "@/components/public-feed-list";
 import { Button } from "@/components/ui/button";
-import { IdeaCard } from "@/components/idea-card";
 import { getIdeaCards } from "@/lib/queries";
 import type { SupabaseLikeClient } from "@/lib/queries";
 import { createClient } from "@/lib/supabase/server";
@@ -11,7 +11,11 @@ export default async function FeedPage() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  const ideas = await getIdeaCards(supabase as unknown as SupabaseLikeClient, { status: "active", visibility: "public" });
+  const ideas = await getIdeaCards(supabase as unknown as SupabaseLikeClient, {
+    range: { from: 0, to: 19 },
+    status: "active",
+    visibility: "public",
+  });
 
   return (
     <div className="container space-y-6 py-6 sm:py-8">
@@ -29,9 +33,7 @@ export default async function FeedPage() {
           </Button>
         ) : null}
       </div>
-      <div className="grid gap-4">
-        {ideas.length ? ideas.map((idea) => <IdeaCard key={idea.id} currentUserId={user?.id} idea={idea} />) : <p>まだ公開アイデアがありません。</p>}
-      </div>
+      <PublicFeedList initialIdeas={ideas} currentUserId={user?.id} />
     </div>
   );
 }

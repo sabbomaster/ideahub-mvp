@@ -21,6 +21,7 @@ type QueryBuilder = {
   limit: (count: number) => QueryBuilder;
   not: (column: string, operator: string, value: unknown) => QueryBuilder;
   order: (column: string, options: { ascending: boolean }) => QueryBuilder;
+  range: (from: number, to: number) => QueryBuilder;
   then: PromiseLike<{ data: unknown[] | null }>["then"];
 };
 
@@ -48,7 +49,15 @@ function countBy<T extends Record<string, string>>(rows: T[] | null | undefined,
 
 export async function getIdeaCards(
   supabase: SupabaseLikeClient,
-  options: { ids?: string[]; includeNonPublic?: boolean; limit?: number; status?: IdeaStatus; userId?: string; visibility?: IdeaVisibility } = {},
+  options: {
+    ids?: string[];
+    includeNonPublic?: boolean;
+    limit?: number;
+    range?: { from: number; to: number };
+    status?: IdeaStatus;
+    userId?: string;
+    visibility?: IdeaVisibility;
+  } = {},
 ): Promise<IdeaCardData[]> {
   if (options.ids && !options.ids.length) return [];
 
@@ -62,7 +71,11 @@ export async function getIdeaCards(
   } else if (!options.includeNonPublic) {
     query = query.eq("status", "active");
   }
-  if (options.limit || !options.ids) query = query.limit(options.limit ?? defaultIdeaListLimit);
+  if (options.range) {
+    query = query.range(options.range.from, options.range.to);
+  } else if (options.limit || !options.ids) {
+    query = query.limit(options.limit ?? defaultIdeaListLimit);
+  }
   if (options.userId) query = query.eq("user_id", options.userId);
   if (options.ids) query = query.in("id", options.ids);
   if (options.visibility) query = query.eq("visibility", options.visibility);
