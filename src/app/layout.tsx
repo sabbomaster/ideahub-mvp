@@ -37,7 +37,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
 
   return (
     <html lang="ja">
-      <body>
+      <body className="flex min-h-screen flex-col">
         <header className="border-b bg-card/90 backdrop-blur">
           <div className="container flex flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:py-0">
             <Link href="/" className="flex min-h-10 items-center gap-2 font-semibold">
@@ -100,7 +100,23 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
             </nav>
           </div>
         </header>
-        <main>{children}</main>
+        <main className="flex-1">{children}</main>
+        <footer className="border-t bg-card/70">
+          <div className="container flex flex-col gap-2 py-5 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+            <div>IdeaHub</div>
+            <nav className="flex flex-wrap gap-x-4 gap-y-2">
+              <Link href="/privacy" className="hover:text-foreground">
+                プライバシーポリシー
+              </Link>
+              <Link href="/terms" className="hover:text-foreground">
+                利用規約
+              </Link>
+              <Link href="/feedback" className="hover:text-foreground">
+                お問い合わせ
+              </Link>
+            </nav>
+          </div>
+        </footer>
       </body>
     </html>
   );
