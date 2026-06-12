@@ -1,6 +1,8 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+/* eslint-disable @next/next/no-img-element */
+import { ChangeEvent, FormEvent, useEffect, useRef, useState } from "react";
+import { X } from "lucide-react";
 import { createIdeaOptimistic } from "@/app/actions";
 import { OptimisticToast } from "@/components/optimistic-toast";
 import { Button } from "@/components/ui/button";
@@ -30,6 +32,12 @@ type NewIdeaFormProps = {
   onOptimisticIdea?: (idea: IdeaCardData) => void;
 };
 
+type SelectedImage = {
+  file: File;
+  id: string;
+  previewUrl: string;
+};
+
 const emptyDraft: Draft = {
   body: "",
   executionPermission: "public",
@@ -42,7 +50,19 @@ export function NewIdeaForm({ canUseSerious, currentUserId, currentUserProfile =
   const [draft, setDraft] = useState<Draft>(emptyDraft);
   const [isSaving, setIsSaving] = useState(false);
   const [fileInputKey, setFileInputKey] = useState(0);
+  const [selectedImages, setSelectedImages] = useState<SelectedImage[]>([]);
+  const selectedImagesRef = useRef<SelectedImage[]>([]);
   const [toast, setToast] = useState<string | null>(null);
+
+  useEffect(() => {
+    selectedImagesRef.current = selectedImages;
+  }, [selectedImages]);
+
+  useEffect(() => {
+    return () => {
+      selectedImagesRef.current.forEach((image) => URL.revokeObjectURL(image.previewUrl));
+    };
+  }, []);
 
   function showSaveError() {
     setToast(saveErrorMessage);
@@ -53,12 +73,38 @@ export function NewIdeaForm({ canUseSerious, currentUserId, currentUserProfile =
     setDraft((current) => ({ ...current, ...nextDraft }));
   }
 
+  function handleImagesChange(event: ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(event.target.files ?? []);
+    const validFiles = files.filter((file) => ["image/jpeg", "image/png", "image/webp", "image/gif"].includes(file.type) && file.size <= 5 * 1024 * 1024);
+    const nextImages = validFiles.slice(0, 4).map((file) => ({
+      file,
+      id: crypto.randomUUID(),
+      previewUrl: URL.createObjectURL(file),
+    }));
+
+    selectedImages.forEach((image) => URL.revokeObjectURL(image.previewUrl));
+    setSelectedImages(nextImages);
+    if (files.length !== validFiles.length || files.length > 4) showSaveError();
+  }
+
+  function removeSelectedImage(imageId: string) {
+    setSelectedImages((current) => {
+      const removedImage = current.find((image) => image.id === imageId);
+      if (removedImage) URL.revokeObjectURL(removedImage.previewUrl);
+      return current.filter((image) => image.id !== imageId);
+    });
+    setFileInputKey((current) => current + 1);
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (isSaving) return;
 
     const form = event.currentTarget;
+    const submittedImages = selectedImages;
     const formData = new FormData(form);
+    formData.delete("images");
+    submittedImages.forEach((image) => formData.append("images", image.file));
     const submittedDraft: Draft = {
       title: String(formData.get("title") ?? "").trim(),
       body: String(formData.get("body") ?? "").trim(),
@@ -92,6 +138,7 @@ export function NewIdeaForm({ canUseSerious, currentUserId, currentUserProfile =
 
     setIsSaving(true);
     setDraft(emptyDraft);
+    setSelectedImages([]);
     setFileInputKey((current) => current + 1);
     onOptimisticIdea?.(temporaryIdea);
 
@@ -101,10 +148,12 @@ export function NewIdeaForm({ canUseSerious, currentUserId, currentUserProfile =
     if (!result.ok) {
       onIdeaFailed?.(temporaryIdea.id);
       setDraft(submittedDraft);
+      setSelectedImages(submittedImages);
       showSaveError();
       return;
     }
 
+    submittedImages.forEach((image) => URL.revokeObjectURL(image.previewUrl));
     onIdeaSaved?.(temporaryIdea.id, { ...result.data, profiles: currentUserProfile });
   }
 
@@ -166,8 +215,36 @@ export function NewIdeaForm({ canUseSerious, currentUserId, currentUserProfile =
           <label htmlFor="images" className="text-sm font-medium">
             画像を添付
           </label>
-          <Input key={fileInputKey} id="images" name="images" type="file" accept="image/png,image/jpeg,image/webp,image/gif" multiple className="min-h-11" />
+          <Input
+            key={fileInputKey}
+            id="images"
+            name="images"
+            type="file"
+            accept="image/png,image/jpeg,image/webp,image/gif"
+            multiple
+            className="min-h-11"
+            onChange={handleImagesChange}
+          />
           <p className="text-xs text-muted-foreground">PNG / JPEG / WebP / GIF、最大4枚、1枚5MBまで。</p>
+          {selectedImages.length ? (
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {selectedImages.map((image, index) => (
+                <div key={image.id} className="relative overflow-hidden rounded-md border bg-muted">
+                  <img src={image.previewUrl} alt={`選択した画像 ${index + 1}`} className="aspect-square w-full object-cover" />
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="icon"
+                    className="absolute right-2 top-2 h-10 w-10 rounded-full shadow-md"
+                    onClick={() => removeSelectedImage(image.id)}
+                    aria-label={`画像 ${index + 1} を削除`}
+                  >
+                    <X className="h-5 w-5" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          ) : null}
         </div>
         <div className="space-y-3">
           <div className="text-sm font-medium">公開範囲</div>
