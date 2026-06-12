@@ -38,6 +38,10 @@ type SelectedImage = {
   previewUrl: string;
 };
 
+function getImageKey(file: File) {
+  return `${file.name}:${file.size}:${file.lastModified}`;
+}
+
 const emptyDraft: Draft = {
   body: "",
   executionPermission: "public",
@@ -76,15 +80,35 @@ export function NewIdeaForm({ canUseSerious, currentUserId, currentUserProfile =
   function handleImagesChange(event: ChangeEvent<HTMLInputElement>) {
     const files = Array.from(event.target.files ?? []);
     const validFiles = files.filter((file) => ["image/jpeg", "image/png", "image/webp", "image/gif"].includes(file.type) && file.size <= 5 * 1024 * 1024);
-    const nextImages = validFiles.slice(0, 4).map((file) => ({
-      file,
-      id: crypto.randomUUID(),
-      previewUrl: URL.createObjectURL(file),
-    }));
+    let skipped = files.length !== validFiles.length;
 
-    selectedImages.forEach((image) => URL.revokeObjectURL(image.previewUrl));
-    setSelectedImages(nextImages);
-    if (files.length !== validFiles.length || files.length > 4) showSaveError();
+    setSelectedImages((current) => {
+      const existingKeys = new Set(current.map((image) => getImageKey(image.file)));
+      const additions: SelectedImage[] = [];
+
+      for (const file of validFiles) {
+        const key = getImageKey(file);
+        if (existingKeys.has(key)) {
+          skipped = true;
+          continue;
+        }
+        if (current.length + additions.length >= 4) {
+          skipped = true;
+          continue;
+        }
+        existingKeys.add(key);
+        additions.push({
+          file,
+          id: crypto.randomUUID(),
+          previewUrl: URL.createObjectURL(file),
+        });
+      }
+
+      return additions.length ? [...current, ...additions] : current;
+    });
+
+    event.target.value = "";
+    if (skipped) showSaveError();
   }
 
   function removeSelectedImage(imageId: string) {
