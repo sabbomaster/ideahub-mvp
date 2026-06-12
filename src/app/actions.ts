@@ -635,20 +635,35 @@ export async function createIdeaOptimistic(formData: FormData): Promise<Optimist
         image_urls: imageUrls,
         user_id: user.id,
       })
-      .select("id")
+      .select("id,created_at,updated_at,image_url,image_urls")
       .single();
 
     if (error || !data) return optimisticFailure(error);
 
-    revalidatePath("/ideas");
-    if (visibility === "public") revalidatePath("/feed");
-
-    const [idea] = await getIdeaCards(supabase as unknown as SupabaseLikeClient, {
-      ids: [(data as { id: string }).id],
-      includeNonPublic: true,
-    });
-
-    return idea ? { ok: true, data: idea } : { ok: false, error: optimisticSaveError };
+    const savedIdea = data as { created_at: string; id: string; image_url: string | null; image_urls: string[] | null; updated_at: string };
+    return {
+      ok: true,
+      data: {
+        id: savedIdea.id,
+        user_id: user.id,
+        title,
+        body,
+        type,
+        status: "active",
+        status_before_archive: null,
+        source: "manual",
+        visibility,
+        execution_permission: normalizedExecutionPermission,
+        image_url: savedIdea.image_url,
+        image_urls: savedIdea.image_urls,
+        created_at: savedIdea.created_at,
+        updated_at: savedIdea.updated_at,
+        profiles: null,
+        likes: [{ count: 0 }],
+        comments: [{ count: 0 }],
+        executions: [{ count: 0 }],
+      },
+    };
   } catch (error) {
     return optimisticFailure(error);
   }
