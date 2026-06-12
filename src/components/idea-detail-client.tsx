@@ -183,6 +183,7 @@ export function IdeaDetailClient({
     const result = await addCommentOptimistic(idea.id, formData);
     setPendingAction(null);
     if (!result.ok) {
+      console.error("[IdeaDetailClient] comment submit failed", { error: result.error, ideaId: idea.id });
       setComments(previousComments);
       setCommentBody(optimisticComment.body);
       setCommentImage(commentImage);
@@ -224,6 +225,7 @@ export function IdeaDetailClient({
     const result = await deleteCommentOptimistic(commentId);
     setPendingAction(null);
     if (!result.ok) {
+      console.error("[IdeaDetailClient] comment delete failed", { commentId, error: result.error });
       setComments(previousComments);
       showSaveError();
     }
@@ -417,7 +419,7 @@ export function IdeaDetailClient({
                     画像を添付
                     <Input key={commentImageInputKey} type="file" name="image" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={handleCommentImageChange} />
                   </label>
-                  <Button type="submit" disabled={disabled || !commentBody.trim()}>
+                  <Button type="submit" disabled={disabled || !currentUserId || !commentBody.trim()}>
                     {pendingAction === "comment" ? "投稿中..." : commentImage ? "画像をアップロードして投稿" : "コメントする"}
                   </Button>
                 </div>

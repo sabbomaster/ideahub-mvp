@@ -1093,11 +1093,15 @@ export async function addCommentOptimistic(ideaId: string, formData: FormData): 
   try {
     const { supabase, user } = await requireUser();
     const trimmedBody = String(formData.get("body") ?? "").trim();
-    if (!trimmedBody) return { ok: false, error: optimisticSaveError };
+    if (!trimmedBody) {
+      console.error("[addCommentOptimistic] empty body", { ideaId, userId: user.id });
+      return { ok: false, error: optimisticSaveError };
+    }
     let imageFile: File | null = null;
     try {
       imageFile = getCommentImageFile(formData);
     } catch (imageError) {
+      console.error("[addCommentOptimistic] invalid image", { error: imageError, ideaId, userId: user.id });
       return optimisticFailure(imageError);
     }
 
@@ -1110,22 +1114,56 @@ export async function addCommentOptimistic(ideaId: string, formData: FormData): 
         .gte("created_at", minutesAgo(10));
 
       if ((recentCommentCount ?? 0) >= trustLimits.commentWindowLimit) {
+        console.error("[addCommentOptimistic] rate limited", { ideaId, recentCommentCount, userId: user.id });
         return { ok: false, error: optimisticSaveError };
       }
     }
 
-    let imagePath: string | null = null;
-    if (imageFile) {
-      try {
-        imagePath = await uploadImageFile({
-          bucket: "comment-images",
-          file: imageFile,
-          maxSize: 5 * 1024 * 1024,
-          userId: user.id,
-        });
-      } catch (uploadError) {
-        return optimisticFailure(uploadError);
+    if (!imageFile) {
+      const { data, error } = await supabase
+        .from("comments")
+        .insert({ idea_id: ideaId, user_id: user.id, body: trimmedBody })
+        .select("id,body,created_at,user_id,profiles(id,username,display_name,credit_score)")
+        .single();
+
+      if (error || !data) {
+        console.error("[addCommentOptimistic] text insert failed", { error, ideaId, userId: user.id });
+        return optimisticFailure(error);
       }
+
+      await createIdeaNotification({
+        supabase,
+        actorId: user.id,
+        ideaId,
+        type: "comment",
+        title: "コメント・改善提案が届きました",
+        body: trimmedBody.slice(0, 120),
+      });
+
+      revalidatePath("/feed");
+      revalidatePath(`/ideas/${ideaId}`);
+      return {
+        ok: true,
+        data: {
+          ...(data as unknown as Omit<OptimisticComment, "image_path" | "image_url" | "likes_count">),
+          image_path: null,
+          image_url: null,
+          likes_count: 0,
+        },
+      };
+    }
+
+    let imagePath: string | null = null;
+    try {
+      imagePath = await uploadImageFile({
+        bucket: "comment-images",
+        file: imageFile,
+        maxSize: 5 * 1024 * 1024,
+        userId: user.id,
+      });
+    } catch (uploadError) {
+      console.error("[addCommentOptimistic] image upload failed", { error: uploadError, ideaId, userId: user.id });
+      return optimisticFailure(uploadError);
     }
 
     const { data, error } = await supabase
@@ -1134,7 +1172,14 @@ export async function addCommentOptimistic(ideaId: string, formData: FormData): 
       .select("id,body,image_path,created_at,user_id,profiles(id,username,display_name,credit_score)")
       .single();
 
-    if (error || !data) return optimisticFailure(error);
+    if (error || !data) {
+      console.error("[addCommentOptimistic] image insert failed", { error, ideaId, imagePath, userId: user.id });
+      if (imagePath?.startsWith(`${user.id}/`)) {
+        const { error: removeError } = await supabase.storage.from("comment-images").remove([imagePath]);
+        if (removeError) console.error("[addCommentOptimistic] cleanup uploaded comment image failed", removeError);
+      }
+      return optimisticFailure(error);
+    }
 
     await createIdeaNotification({
       supabase,
@@ -1162,23 +1207,36 @@ export async function deleteCommentOptimistic(commentId: string): Promise<Optimi
     const { supabase, user } = await requireUser();
     const { data: comment, error: commentError } = await supabase
       .from("comments")
-      .select("id,user_id,idea_id,image_path")
+      .select("id,user_id,idea_id")
       .eq("id", commentId)
       .single();
 
-    if (commentError || !comment) return optimisticFailure(commentError);
-    const typedComment = comment as { idea_id: string; image_path: string | null; user_id: string };
+    if (commentError || !comment) {
+      console.error("[deleteCommentOptimistic] comment lookup failed", { commentId, error: commentError, userId: user.id });
+      return optimisticFailure(commentError);
+    }
+    const typedComment = comment as { idea_id: string; user_id: string };
     if (typedComment.user_id !== user.id) {
+      console.error("[deleteCommentOptimistic] forbidden", { commentId, commentUserId: typedComment.user_id, userId: user.id });
       return { ok: false, error: optimisticSaveError };
+    }
+
+    const imageLookup = await supabase.from("comments").select("image_path").eq("id", commentId).maybeSingle();
+    const imagePath = (imageLookup.data as { image_path?: string | null } | null)?.image_path;
+    if (imageLookup.error) {
+      console.error("[deleteCommentOptimistic] image_path lookup skipped or failed", imageLookup.error);
     }
 
     await supabase.from("likes").delete().eq("target_type", "comment").eq("target_id", commentId);
     const { error } = await supabase.from("comments").delete().eq("id", commentId).eq("user_id", user.id);
-    if (error) return optimisticFailure(error);
+    if (error) {
+      console.error("[deleteCommentOptimistic] delete failed", { commentId, error, userId: user.id });
+      return optimisticFailure(error);
+    }
 
-    if (typedComment.image_path?.startsWith(`${user.id}/`)) {
-      const { error: removeError } = await supabase.storage.from("comment-images").remove([typedComment.image_path]);
-      if (removeError) console.error(removeError);
+    if (imagePath?.startsWith(`${user.id}/`)) {
+      const { error: removeError } = await supabase.storage.from("comment-images").remove([imagePath]);
+      if (removeError) console.error("[deleteCommentOptimistic] comment image remove failed", removeError);
     }
 
     revalidatePath(`/ideas/${typedComment.idea_id}`);
