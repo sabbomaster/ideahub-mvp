@@ -26,7 +26,7 @@ import { Input } from "@/components/ui/input";
 import { formatDate } from "@/lib/utils";
 import type { ExecutionKind, ExecutionPermission, IdeaSource, IdeaStatus, IdeaVisibility } from "@/lib/database.types";
 
-const saveErrorMessage = "保存に失敗しました。もう一度お試しください";
+const saveErrorMessage = "投稿に失敗しました。時間をおいて再試行してください";
 
 export type ProfileLite = { id: string; username: string | null; display_name: string | null; credit_score?: number };
 

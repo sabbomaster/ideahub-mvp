@@ -2,6 +2,7 @@ import type { IdeaStatus, IdeaVisibility } from "@/lib/database.types";
 import type { IdeaCardData } from "@/components/idea-card";
 
 const defaultIdeaListLimit = 30;
+const fallbackDate = new Date(0).toISOString();
 
 export type IdeaSortColumn = "created_at" | "title" | "updated_at";
 
@@ -27,25 +28,64 @@ type QueryBuilder = {
   then: PromiseLike<{ data: unknown[] | null }>["then"];
 };
 
+type ProfileLite = { id: string; username: string | null; display_name: string | null };
+
+function normalizeText(value: unknown, fallback = "") {
+  return typeof value === "string" ? value : fallback;
+}
+
+function normalizeDate(value: unknown) {
+  if (typeof value !== "string") return fallbackDate;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? fallbackDate : value;
+}
+
+function normalizeProfile(profile: unknown, fallbackUserId: string): ProfileLite | null {
+  const value = Array.isArray(profile) ? profile[0] : profile;
+  if (!value || typeof value !== "object") return fallbackUserId ? { id: fallbackUserId, username: null, display_name: null } : null;
+  const record = value as Record<string, unknown>;
+  return {
+    id: normalizeText(record.id, fallbackUserId),
+    username: typeof record.username === "string" ? record.username : null,
+    display_name: typeof record.display_name === "string" ? record.display_name : null,
+  };
+}
+
+function normalizeImagePaths(imageUrls: unknown, fallbackImageUrl?: unknown) {
+  const paths = Array.isArray(imageUrls) ? imageUrls : [];
+  return [...new Set([...paths, fallbackImageUrl].filter((path): path is string => typeof path === "string" && path.length > 0))].slice(0, 4);
+}
+
 async function signIdeaImageUrls(supabase: SupabaseLikeClient, imageUrls: string[] | null | undefined, fallbackImageUrl?: string | null) {
-  const paths = [...(imageUrls ?? []), ...(fallbackImageUrl ? [fallbackImageUrl] : [])].filter(Boolean);
-  const uniquePaths = [...new Set(paths)].slice(0, 4);
+  const uniquePaths = normalizeImagePaths(imageUrls, fallbackImageUrl);
 
   if (!uniquePaths.length || !supabase.storage) return [];
 
   const signedUrls = await Promise.all(
     uniquePaths.map(async (path) => {
-      const { data } = await supabase.storage!.from("idea-images").createSignedUrl(path, 60 * 60);
-      return data?.signedUrl ?? null;
+      try {
+        const { data, error } = await supabase.storage!.from("idea-images").createSignedUrl(path, 60 * 60);
+        if (error) {
+          console.error("[getIdeaCards] failed to sign idea image", { error, path });
+          return null;
+        }
+        return data?.signedUrl ?? null;
+      } catch (error) {
+        console.error("[getIdeaCards] failed to sign idea image", { error, path });
+        return null;
+      }
     }),
   );
 
   return signedUrls.filter((url): url is string => Boolean(url));
 }
 
-function countBy<T extends Record<string, string>>(rows: T[] | null | undefined, key: keyof T) {
+function countBy<T extends Record<string, unknown>>(rows: T[] | null | undefined, key: keyof T) {
   const counts = new Map<string, number>();
-  rows?.forEach((row) => counts.set(row[key], (counts.get(row[key]) ?? 0) + 1));
+  rows?.forEach((row) => {
+    const value = row[key];
+    if (typeof value === "string" && value) counts.set(value, (counts.get(value) ?? 0) + 1);
+  });
   return counts;
 }
 
@@ -85,7 +125,26 @@ export async function getIdeaCards(
   if (options.visibility) query = query.eq("visibility", options.visibility);
 
   const { data: ideas } = await query;
-  const typedIdeas = (ideas ?? []) as Array<Omit<IdeaCardData, "likes" | "comments" | "executions">>;
+  const typedIdeas = ((ideas ?? []) as Array<Record<string, unknown>>).map((idea) => {
+    const userId = normalizeText(idea.user_id);
+    return {
+      id: normalizeText(idea.id),
+      user_id: userId,
+      title: normalizeText(idea.title, "無題"),
+      body: normalizeText(idea.body),
+      type: idea.type === "serious" ? "serious" : "rough",
+      status: idea.status === "completed" || idea.status === "archived" ? idea.status : "active",
+      status_before_archive: idea.status_before_archive === "completed" || idea.status_before_archive === "active" ? idea.status_before_archive : null,
+      source: idea.source === "mental_seesaw" ? "mental_seesaw" : "manual",
+      visibility: idea.visibility === "private" ? "private" : "public",
+      execution_permission: idea.execution_permission === "owner_only" ? "owner_only" : "public",
+      image_url: typeof idea.image_url === "string" ? idea.image_url : null,
+      image_urls: normalizeImagePaths(idea.image_urls, idea.image_url),
+      created_at: normalizeDate(idea.created_at),
+      updated_at: normalizeDate(idea.updated_at),
+      profiles: normalizeProfile(idea.profiles, userId),
+    } satisfies Omit<IdeaCardData, "likes" | "comments" | "executions">;
+  }).filter((idea) => Boolean(idea.id));
   const ideasWithImages = await Promise.all(
     typedIdeas.map(async (idea) => {
       const image_urls = await signIdeaImageUrls(supabase, idea.image_urls, idea.image_url);
@@ -123,7 +182,9 @@ export async function getMyExecutedIdeaCards(
     getIdeaCards(supabase, { limit, status: "completed", userId }),
     supabase.from("executions").select("idea_id").eq("user_id", userId).limit(limit),
   ]);
-  const executionIdeaIds = ((executionRows.data ?? []) as { idea_id: string }[]).map((row) => row.idea_id);
+  const executionIdeaIds = ((executionRows.data ?? []) as { idea_id?: unknown }[])
+    .map((row) => row.idea_id)
+    .filter((ideaId): ideaId is string => typeof ideaId === "string" && Boolean(ideaId));
   const reportedIdeas = await getIdeaCards(supabase, { ids: executionIdeaIds.slice(0, limit), includeNonPublic: true });
   const merged = new Map<string, IdeaCardData>();
 
@@ -133,5 +194,7 @@ export async function getMyExecutedIdeaCards(
     }
   });
 
-  return [...merged.values()].sort((a, b) => Date.parse(b.updated_at) - Date.parse(a.updated_at)).slice(0, limit);
+  return [...merged.values()]
+    .sort((a, b) => Date.parse(b.updated_at ?? "") - Date.parse(a.updated_at ?? ""))
+    .slice(0, limit);
 }

@@ -28,16 +28,25 @@ const sortOptions: Array<{ key: MyIdeaSort; label: string }> = [
 
 function sortIdeas(ideas: IdeaCardData[], sort: MyIdeaSort) {
   return [...ideas].sort((a, b) => {
-    if (sort === "created_asc") return Date.parse(a.created_at) - Date.parse(b.created_at);
-    if (sort === "created_desc") return Date.parse(b.created_at) - Date.parse(a.created_at);
-    if (sort === "title_asc") return a.title.localeCompare(b.title, "ja");
+    const createdA = Date.parse(a.created_at ?? "");
+    const createdB = Date.parse(b.created_at ?? "");
+    const updatedA = Date.parse(a.updated_at ?? "");
+    const updatedB = Date.parse(b.updated_at ?? "");
+    const safeCreatedA = Number.isNaN(createdA) ? 0 : createdA;
+    const safeCreatedB = Number.isNaN(createdB) ? 0 : createdB;
+    const safeUpdatedA = Number.isNaN(updatedA) ? 0 : updatedA;
+    const safeUpdatedB = Number.isNaN(updatedB) ? 0 : updatedB;
+
+    if (sort === "created_asc") return safeCreatedA - safeCreatedB;
+    if (sort === "created_desc") return safeCreatedB - safeCreatedA;
+    if (sort === "title_asc") return (a.title ?? "").localeCompare(b.title ?? "", "ja");
     if (sort === "completed_first") {
       const completedDiff = Number(b.status === "completed") - Number(a.status === "completed");
       if (completedDiff !== 0) return completedDiff;
-      return Date.parse(b.updated_at) - Date.parse(a.updated_at);
+      return safeUpdatedB - safeUpdatedA;
     }
 
-    return Date.parse(b.updated_at) - Date.parse(a.updated_at);
+    return safeUpdatedB - safeUpdatedA;
   });
 }
 

@@ -19,14 +19,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatDate } from "@/lib/utils";
 import type { ExecutionPermission, IdeaSource, IdeaStatus, IdeaType, IdeaVisibility } from "@/lib/database.types";
 
-const saveErrorMessage = "保存に失敗しました。もう一度お試しください";
+const saveErrorMessage = "投稿に失敗しました。時間をおいて再試行してください";
 
 export type IdeaCardData = {
   id: string;
   user_id: string;
-  title: string;
-  body: string;
-  type: IdeaType;
+  title: string | null;
+  body: string | null;
+  type: IdeaType | null;
   status?: IdeaStatus;
   status_before_archive?: Exclude<IdeaStatus, "archived"> | null;
   source?: IdeaSource;
@@ -34,12 +34,12 @@ export type IdeaCardData = {
   execution_permission?: ExecutionPermission;
   image_url?: string | null;
   image_urls?: string[] | null;
-  created_at: string;
-  updated_at: string;
+  created_at: string | null;
+  updated_at: string | null;
   profiles: { id: string; username: string | null; display_name: string | null } | null;
-  likes: { count: number }[];
-  comments: { count: number }[];
-  executions: { count: number }[];
+  likes?: { count: number }[] | null;
+  comments?: { count: number }[] | null;
+  executions?: { count: number }[] | null;
 };
 
 type IdeaCardProps = {
@@ -49,8 +49,12 @@ type IdeaCardProps = {
   variant?: "manage" | "profile";
 };
 
-function updateCount(counts: { count: number }[] | undefined, delta: number) {
+function updateCount(counts: { count: number }[] | null | undefined, delta: number) {
   return [{ count: Math.max(0, (counts?.[0]?.count ?? 0) + delta) }];
+}
+
+function getCount(counts: { count: number }[] | null | undefined) {
+  return counts?.[0]?.count ?? 0;
 }
 
 export function IdeaCard({ currentUserId, idea: initialIdea, showExecutionReportAction = true, variant = "manage" }: IdeaCardProps) {
@@ -62,6 +66,9 @@ export function IdeaCard({ currentUserId, idea: initialIdea, showExecutionReport
   if (isDeleted) return null;
 
   const author = idea.profiles?.display_name || idea.profiles?.username || "匿名ユーザー";
+  const profileId = idea.profiles?.id || idea.user_id || currentUserId || null;
+  const title = idea.title || "無題";
+  const body = idea.body || "";
   const isCompleted = idea.status === "completed";
   const isArchived = idea.status === "archived";
   const isSelfImprovement = idea.source === "mental_seesaw";
@@ -194,44 +201,48 @@ export function IdeaCard({ currentUserId, idea: initialIdea, showExecutionReport
           </div>
           <CardTitle className="break-words text-xl leading-snug">
             <Link href={`/ideas/${idea.id}`} className="hover:text-primary">
-              {idea.title}
+              {title}
             </Link>
           </CardTitle>
         </CardHeader>
         <CardContent className="min-w-0 space-y-4">
           <IdeaImageGrid images={idea.image_urls?.length ? idea.image_urls : idea.image_url ? [idea.image_url] : []} />
-          <p className="line-clamp-3 whitespace-pre-wrap break-words text-sm leading-6 text-muted-foreground">{idea.body}</p>
+          <p className="line-clamp-3 whitespace-pre-wrap break-words text-sm leading-6 text-muted-foreground">{body}</p>
           <div className="flex flex-col gap-3 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
-            <Link href={`/profiles/${idea.profiles?.id ?? currentUserId ?? ""}`} className="break-words font-medium text-foreground hover:text-primary">
-              {author}
-            </Link>
+            {profileId ? (
+              <Link href={`/profiles/${profileId}`} className="break-words font-medium text-foreground hover:text-primary">
+                {author}
+              </Link>
+            ) : (
+              <span className="break-words font-medium text-foreground">{author}</span>
+            )}
             <div className="flex items-center gap-4">
               <span className="flex items-center gap-1">
                 <Heart className="h-4 w-4" />
-                {idea.likes[0]?.count ?? 0}
+                {getCount(idea.likes)}
               </span>
               <span className="flex items-center gap-1">
                 <MessageCircle className="h-4 w-4" />
-                {idea.comments[0]?.count ?? 0}
+                {getCount(idea.comments)}
               </span>
               <span className="flex items-center gap-1">
                 <Rocket className="h-4 w-4" />
-                {idea.executions[0]?.count ?? 0}
+                {getCount(idea.executions)}
               </span>
             </div>
           </div>
           {variant === "profile" ? (
             <div className="grid grid-cols-3 gap-2 border-t pt-4 text-center text-xs text-muted-foreground">
               <div className="rounded-md bg-muted px-2 py-2">
-                <div className="text-base font-semibold text-foreground">{idea.executions[0]?.count ?? 0}</div>
+                <div className="text-base font-semibold text-foreground">{getCount(idea.executions)}</div>
                 実行
               </div>
               <div className="rounded-md bg-muted px-2 py-2">
-                <div className="text-base font-semibold text-foreground">{idea.likes[0]?.count ?? 0}</div>
+                <div className="text-base font-semibold text-foreground">{getCount(idea.likes)}</div>
                 いいね
               </div>
               <div className="rounded-md bg-muted px-2 py-2">
-                <div className="text-base font-semibold text-foreground">{idea.comments[0]?.count ?? 0}</div>
+                <div className="text-base font-semibold text-foreground">{getCount(idea.comments)}</div>
                 コメント
               </div>
             </div>

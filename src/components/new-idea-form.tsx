@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import type { IdeaCardData } from "@/components/idea-card";
 import type { ExecutionPermission, IdeaType, IdeaVisibility } from "@/lib/database.types";
 
-const saveErrorMessage = "保存に失敗しました";
+const saveErrorMessage = "投稿に失敗しました。時間をおいて再試行してください";
 
 type ProfileLite = { id: string; username: string | null; display_name: string | null };
 
@@ -142,8 +142,15 @@ export function NewIdeaForm({ canUseSerious, currentUserId, currentUserProfile =
     setFileInputKey((current) => current + 1);
     onOptimisticIdea?.(temporaryIdea);
 
-    const result = await createIdeaOptimistic(formData);
-    setIsSaving(false);
+    let result: Awaited<ReturnType<typeof createIdeaOptimistic>>;
+    try {
+      result = await createIdeaOptimistic(formData);
+    } catch (error) {
+      console.error("[NewIdeaForm] idea submit failed", { error });
+      result = { ok: false, error: saveErrorMessage };
+    } finally {
+      setIsSaving(false);
+    }
 
     if (!result.ok) {
       onIdeaFailed?.(temporaryIdea.id);
@@ -159,7 +166,7 @@ export function NewIdeaForm({ canUseSerious, currentUserId, currentUserProfile =
 
   return (
     <>
-      <form onSubmit={handleSubmit} className="space-y-5">
+      <form onSubmit={handleSubmit} className="space-y-5" aria-busy={isSaving}>
         {!canUseSerious ? (
           <div className="rounded-md border bg-muted px-4 py-3 text-sm leading-6 text-muted-foreground">
             新規ユーザーは、まず「アイデア枠」から投稿できます。プロジェクト枠は活動実績が増えると使えるようになります。
@@ -313,7 +320,7 @@ export function NewIdeaForm({ canUseSerious, currentUserId, currentUserProfile =
           </div>
         </div>
         <Button type="submit" className="min-h-11 w-full sm:w-auto" disabled={isSaving}>
-          {isSaving ? "保存中..." : "投稿する"}
+          {isSaving ? "投稿中..." : "投稿する"}
         </Button>
       </form>
       <OptimisticToast message={toast} />

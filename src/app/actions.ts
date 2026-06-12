@@ -9,7 +9,7 @@ import { getIdeaCards, type SupabaseLikeClient } from "@/lib/queries";
 import type { ExecutionPermission, IdeaStatus, IdeaType, IdeaVisibility, LikeTargetType, MentalSeesawItemKind, NotificationType, ReportTargetType } from "@/lib/database.types";
 import type { IdeaCardData } from "@/components/idea-card";
 
-const optimisticSaveError = "保存に失敗しました。もう一度お試しください";
+const optimisticSaveError = "投稿に失敗しました。時間をおいて再試行してください";
 
 type OptimisticResult<T = undefined> = T extends undefined
   ? { ok: true } | { ok: false; error: string }

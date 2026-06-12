@@ -42,7 +42,7 @@ export default async function IdeaDetailPage({
   const [{ data: comments }, { data: liked }, { data: executions }, { data: currentUserProfile }] = await Promise.all([
     supabase
       .from("comments")
-      .select("id,body,created_at,user_id,profiles(id,username,display_name,credit_score)")
+      .select("id,body,image_path,created_at,user_id,profiles(id,username,display_name,credit_score)")
       .eq("idea_id", id)
       .order("created_at", { ascending: true }),
     user
@@ -63,7 +63,9 @@ export default async function IdeaDetailPage({
   ]);
 
   const typedExecutions = (executions ?? []) as unknown as ExecutionData[];
-  const commentIds = ((comments ?? []) as { id: string }[]).map((comment) => comment.id);
+  const commentIds = ((comments ?? []) as { id?: unknown }[])
+    .map((comment) => comment.id)
+    .filter((commentId): commentId is string => typeof commentId === "string" && Boolean(commentId));
   const [{ data: ideaLikes }, { data: commentLikes }, { data: likedComments }] = await Promise.all([
     supabase.from("likes").select("target_id").eq("target_type", "idea").eq("target_id", id),
     commentIds.length
@@ -80,7 +82,16 @@ export default async function IdeaDetailPage({
   const typedComments = await Promise.all(
     ((comments ?? []) as unknown as Array<Omit<CommentData, "image_path" | "image_url" | "likes_count"> & { image_path?: string | null }>).map(async (comment) => {
       const imagePath = comment.image_path ?? null;
-      const imageUrl = imagePath ? (await supabase.storage.from("comment-images").createSignedUrl(imagePath, 60 * 60)).data?.signedUrl ?? null : null;
+      let imageUrl: string | null = null;
+      if (imagePath) {
+        try {
+          const { data, error: imageError } = await supabase.storage.from("comment-images").createSignedUrl(imagePath, 60 * 60);
+          if (imageError) console.error("[IdeaDetailPage] failed to sign comment image", { error: imageError, imagePath });
+          imageUrl = data?.signedUrl ?? null;
+        } catch (imageError) {
+          console.error("[IdeaDetailPage] failed to sign comment image", { error: imageError, imagePath });
+        }
+      }
       return {
         ...comment,
         image_path: imagePath,
@@ -94,12 +105,18 @@ export default async function IdeaDetailPage({
   idea.executions_count = typedExecutions.length;
   const canReportExecution = Boolean(user && !isAuthor && !isArchived && idea.visibility === "public" && !isSelfImprovement && idea.execution_permission === "public");
   const likedCommentIds = ((likedComments ?? []) as { target_id: string }[]).map((like) => like.target_id);
-  const imagePaths = [...(idea.image_urls ?? []), ...(idea.image_url ? [idea.image_url] : [])].filter(Boolean);
+  const imagePaths = [...(Array.isArray(idea.image_urls) ? idea.image_urls : []), ...(idea.image_url ? [idea.image_url] : [])].filter((path): path is string => typeof path === "string" && Boolean(path));
   const imageUrls = (
     await Promise.all(
       [...new Set(imagePaths)].slice(0, 4).map(async (path) => {
-        const { data } = await supabase.storage.from("idea-images").createSignedUrl(path, 60 * 60);
-        return data?.signedUrl ?? null;
+        try {
+          const { data, error: imageError } = await supabase.storage.from("idea-images").createSignedUrl(path, 60 * 60);
+          if (imageError) console.error("[IdeaDetailPage] failed to sign idea image", { error: imageError, path });
+          return data?.signedUrl ?? null;
+        } catch (imageError) {
+          console.error("[IdeaDetailPage] failed to sign idea image", { error: imageError, path });
+          return null;
+        }
       }),
     )
   ).filter((url): url is string => Boolean(url));
