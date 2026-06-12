@@ -1,9 +1,8 @@
 /* eslint-disable @next/next/no-img-element */
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { Trash2 } from "lucide-react";
 import { updateIdea } from "@/app/actions";
-import { IdeaImageGrid } from "@/components/idea-image-grid";
+import { IdeaImageManager } from "@/components/idea-image-manager";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -108,26 +107,9 @@ export default async function EditIdeaPage({
               <label htmlFor="images" className="text-sm font-medium">
                 画像
               </label>
-              <IdeaImageGrid images={currentImages.map((image) => image.url)} />
-              {currentImages.length ? (
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {currentImages.map((image, index) => (
-                    <label key={image.path} className="flex cursor-pointer gap-3 rounded-md border p-3">
-                      <img src={image.url} alt="" className="h-20 w-20 shrink-0 rounded-md border object-cover" />
-                      <span className="flex min-w-0 flex-1 flex-col justify-between gap-2">
-                        <span className="text-sm font-medium">画像 {index + 1}</span>
-                        <span className="flex items-center gap-2 text-sm text-destructive">
-                          <input type="checkbox" name="remove_image_urls" value={image.path} className="h-4 w-4" />
-                          <Trash2 className="h-4 w-4" />
-                          削除する
-                        </span>
-                      </span>
-                    </label>
-                  ))}
-                </div>
-              ) : null}
+              <IdeaImageManager ideaId={id} images={currentImages} />
               <Input id="images" name="images" type="file" accept="image/png,image/jpeg,image/webp,image/gif" multiple />
-              <p className="text-xs text-muted-foreground">新しく画像を選ぶと、既存画像をまとめて差し替えます。PNG / JPEG / WebP / GIF、最大4枚、1枚5MBまで。</p>
+              <p className="text-xs text-muted-foreground">PNG / JPEG / WebP / GIF、最大4枚、1枚5MBまで。</p>
             </div>
             <div className="space-y-3">
               <div className="text-sm font-medium">公開範囲</div>

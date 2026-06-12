@@ -109,9 +109,11 @@ export function IdeaImageGrid({ images }: IdeaImageGridProps) {
             </Button>
           ) : null}
 
-          <div className="absolute bottom-4 rounded-full bg-black/50 px-3 py-1 text-sm text-white">
-            {activeIndex + 1} / {visibleImages.length}
-          </div>
+          {activeIndex !== null ? (
+            <div className="absolute bottom-4 rounded-full bg-black/50 px-3 py-1 text-sm text-white">
+              {activeIndex + 1} / {visibleImages.length}
+            </div>
+          ) : null}
         </div>
       ) : null}
     </>

@@ -7,6 +7,27 @@ import { createClient } from "@/lib/supabase/server";
 import { hasExternalLink, isLowTrust, trustLimits } from "@/lib/trust";
 import { getIdeaCards, type SupabaseLikeClient } from "@/lib/queries";
 import type { ExecutionPermission, IdeaStatus, IdeaType, IdeaVisibility, LikeTargetType, MentalSeesawItemKind, NotificationType, ReportTargetType } from "@/lib/database.types";
+import type { IdeaCardData } from "@/components/idea-card";
+
+const optimisticSaveError = "保存に失敗しました。もう一度お試しください";
+
+type OptimisticResult<T = undefined> = T extends undefined
+  ? { ok: true } | { ok: false; error: string }
+  : { ok: true; data: T } | { ok: false; error: string };
+
+type OptimisticComment = {
+  id: string;
+  body: string;
+  created_at: string;
+  user_id: string;
+  profiles: { id: string; username: string | null; display_name: string | null; credit_score?: number } | null;
+  likes_count: number;
+};
+
+function optimisticFailure(error: unknown): { ok: false; error: string } {
+  if (error) console.error(error);
+  return { ok: false, error: optimisticSaveError };
+}
 
 async function requireUser() {
   const supabase = await createClient();
@@ -555,6 +576,84 @@ export async function createIdea(formData: FormData) {
   redirect("/ideas");
 }
 
+export async function createIdeaOptimistic(formData: FormData): Promise<OptimisticResult<IdeaCardData>> {
+  try {
+    const { supabase, user } = await requireUser();
+    const title = String(formData.get("title") ?? "").trim();
+    const body = String(formData.get("body") ?? "").trim();
+    const type = String(formData.get("type") ?? "rough") as IdeaType;
+    const visibility = String(formData.get("visibility") ?? "public") as IdeaVisibility;
+    const executionPermission = String(formData.get("execution_permission") ?? "public") as ExecutionPermission;
+    const normalizedExecutionPermission = visibility === "private" ? "owner_only" : executionPermission;
+
+    if (!title || !body || !["rough", "serious"].includes(type) || !["public", "private"].includes(visibility) || !["owner_only", "public"].includes(executionPermission)) {
+      return { ok: false, error: optimisticSaveError };
+    }
+
+    let imageFiles: File[] = [];
+    try {
+      imageFiles = getImageFiles(formData);
+    } catch (imageError) {
+      return optimisticFailure(imageError);
+    }
+
+    const creditScore = await getCreditScore(supabase, user.id);
+    if (type === "serious" && creditScore < trustLimits.seriousIdeaMinScore) {
+      return { ok: false, error: optimisticSaveError };
+    }
+    if (isLowTrust(creditScore) && hasExternalLink(`${title}\n${body}`)) {
+      return { ok: false, error: optimisticSaveError };
+    }
+
+    const [{ count: dailyIdeaCount }, { count: recentIdeaCount }] = await Promise.all([
+      supabase
+        .from("ideas")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", user.id)
+        .gte("created_at", minutesAgo(24 * 60)),
+      supabase
+        .from("ideas")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", user.id)
+        .gte("created_at", minutesAgo(10)),
+    ]);
+
+    if (isLowTrust(creditScore) && ((dailyIdeaCount ?? 0) >= trustLimits.dailyIdeaLimit || (recentIdeaCount ?? 0) >= trustLimits.recentIdeaLimit)) {
+      return { ok: false, error: optimisticSaveError };
+    }
+
+    const imageUrls = await uploadIdeaImages(imageFiles, user.id);
+    const { data, error } = await supabase
+      .from("ideas")
+      .insert({
+        title,
+        body,
+        type,
+        visibility,
+        execution_permission: normalizedExecutionPermission,
+        image_url: imageUrls[0] ?? null,
+        image_urls: imageUrls,
+        user_id: user.id,
+      })
+      .select("id")
+      .single();
+
+    if (error || !data) return optimisticFailure(error);
+
+    revalidatePath("/ideas");
+    if (visibility === "public") revalidatePath("/feed");
+
+    const [idea] = await getIdeaCards(supabase as unknown as SupabaseLikeClient, {
+      ids: [(data as { id: string }).id],
+      includeNonPublic: true,
+    });
+
+    return idea ? { ok: true, data: idea } : { ok: false, error: optimisticSaveError };
+  } catch (error) {
+    return optimisticFailure(error);
+  }
+}
+
 export async function updateIdea(ideaId: string, formData: FormData) {
   const { supabase, user } = await requireUser();
   const title = String(formData.get("title") ?? "").trim();
@@ -651,6 +750,52 @@ export async function updateIdea(ideaId: string, formData: FormData) {
   revalidatePath(`/ideas/${ideaId}`);
   revalidatePath(`/ideas/${ideaId}/edit`);
   redirect(`/ideas/${ideaId}`);
+}
+
+export async function deleteIdeaImageOptimistic(ideaId: string, imagePath: string): Promise<OptimisticResult<{ image_urls: string[] }>> {
+  try {
+    const { supabase, user } = await requireUser();
+    const { data: existingIdea, error: existingIdeaError } = await supabase
+      .from("ideas")
+      .select("image_url,image_urls")
+      .eq("id", ideaId)
+      .eq("user_id", user.id)
+      .single();
+
+    if (existingIdeaError || !existingIdea) return optimisticFailure(existingIdeaError);
+
+    const existingImagePaths = getUniqueImagePaths(
+      (existingIdea as { image_urls?: string[] | null }).image_urls,
+      (existingIdea as { image_url?: string | null }).image_url,
+    );
+    if (!existingImagePaths.includes(imagePath)) return { ok: true, data: { image_urls: existingImagePaths } };
+
+    const nextImageUrls = existingImagePaths.filter((path) => path !== imagePath);
+    const { error } = await supabase
+      .from("ideas")
+      .update({
+        image_url: nextImageUrls[0] ?? null,
+        image_urls: nextImageUrls,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", ideaId)
+      .eq("user_id", user.id);
+
+    if (error) return optimisticFailure(error);
+
+    if (imagePath.startsWith(`${user.id}/`)) {
+      const { error: removeError } = await supabase.storage.from("idea-images").remove([imagePath]);
+      if (removeError) console.error(removeError);
+    }
+
+    revalidatePath("/ideas");
+    revalidatePath("/feed");
+    revalidatePath(`/ideas/${ideaId}`);
+    revalidatePath(`/ideas/${ideaId}/edit`);
+    return { ok: true, data: { image_urls: nextImageUrls } };
+  } catch (error) {
+    return optimisticFailure(error);
+  }
 }
 
 export async function updateIdeaStatus(ideaId: string, status: IdeaStatus) {
@@ -760,6 +905,124 @@ export async function deleteArchivedIdea(ideaId: string) {
   redirect("/ideas?box=archived");
 }
 
+export async function updateIdeaStatusOptimistic(ideaId: string, status: Exclude<IdeaStatus, "archived">): Promise<OptimisticResult> {
+  try {
+    const { supabase, user } = await requireUser();
+    if (!["active", "completed"].includes(status)) return { ok: false, error: optimisticSaveError };
+
+    const { error } = await supabase
+      .from("ideas")
+      .update({
+        status,
+        status_before_archive: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", ideaId)
+      .eq("user_id", user.id);
+
+    if (error) return optimisticFailure(error);
+
+    if (status === "active") {
+      const { error: deleteError } = await supabase.from("executions").delete().eq("idea_id", ideaId).eq("user_id", user.id).eq("kind", "self");
+      if (deleteError) return optimisticFailure(deleteError);
+    } else {
+      await supabase.from("executions").delete().eq("idea_id", ideaId).eq("user_id", user.id);
+      const { error: insertError } = await supabase.from("executions").insert({ idea_id: ideaId, user_id: user.id, kind: "self", note: "自分で実行しました" });
+      if (insertError) return optimisticFailure(insertError);
+    }
+
+    revalidatePath("/feed");
+    revalidatePath("/ideas");
+    revalidatePath(`/ideas/${ideaId}`);
+    return { ok: true };
+  } catch (error) {
+    return optimisticFailure(error);
+  }
+}
+
+export async function archiveIdeaOptimistic(ideaId: string): Promise<OptimisticResult> {
+  try {
+    const { supabase, user } = await requireUser();
+    const { data: idea, error: ideaError } = await supabase
+      .from("ideas")
+      .select("status")
+      .eq("id", ideaId)
+      .eq("user_id", user.id)
+      .single();
+    if (ideaError || !idea) return optimisticFailure(ideaError);
+
+    const previousStatus = ((idea as { status?: IdeaStatus } | null)?.status === "completed" ? "completed" : "active");
+    const { error } = await supabase
+      .from("ideas")
+      .update({
+        status: "archived",
+        status_before_archive: previousStatus,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", ideaId)
+      .eq("user_id", user.id);
+
+    if (error) return optimisticFailure(error);
+
+    revalidatePath("/ideas");
+    revalidatePath(`/ideas/${ideaId}`);
+    return { ok: true };
+  } catch (error) {
+    return optimisticFailure(error);
+  }
+}
+
+export async function unarchiveIdeaOptimistic(ideaId: string): Promise<OptimisticResult<{ status: Exclude<IdeaStatus, "archived"> }>> {
+  try {
+    const { supabase, user } = await requireUser();
+    const { data: idea, error: ideaError } = await supabase
+      .from("ideas")
+      .select("status_before_archive")
+      .eq("id", ideaId)
+      .eq("user_id", user.id)
+      .single();
+    if (ideaError || !idea) return optimisticFailure(ideaError);
+
+    const restoredStatus = ((idea as { status_before_archive?: "active" | "completed" | null } | null)?.status_before_archive ?? "active");
+    const { error } = await supabase
+      .from("ideas")
+      .update({
+        status: restoredStatus,
+        status_before_archive: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", ideaId)
+      .eq("user_id", user.id);
+
+    if (error) return optimisticFailure(error);
+
+    revalidatePath("/ideas");
+    revalidatePath(`/ideas/${ideaId}`);
+    return { ok: true, data: { status: restoredStatus } };
+  } catch (error) {
+    return optimisticFailure(error);
+  }
+}
+
+export async function deleteArchivedIdeaOptimistic(ideaId: string): Promise<OptimisticResult> {
+  try {
+    const { supabase, user } = await requireUser();
+    const { error } = await supabase
+      .from("ideas")
+      .delete()
+      .eq("id", ideaId)
+      .eq("user_id", user.id)
+      .eq("status", "archived");
+
+    if (error) return optimisticFailure(error);
+
+    revalidatePath("/ideas");
+    return { ok: true };
+  } catch (error) {
+    return optimisticFailure(error);
+  }
+}
+
 export async function addComment(ideaId: string, formData: FormData) {
   const { supabase, user } = await requireUser();
   const body = String(formData.get("body") ?? "").trim();
@@ -800,6 +1063,50 @@ export async function addComment(ideaId: string, formData: FormData) {
   revalidatePath(`/ideas/${ideaId}`);
 }
 
+export async function addCommentOptimistic(ideaId: string, body: string): Promise<OptimisticResult<OptimisticComment>> {
+  try {
+    const { supabase, user } = await requireUser();
+    const trimmedBody = body.trim();
+    if (!trimmedBody) return { ok: false, error: optimisticSaveError };
+
+    const creditScore = await getCreditScore(supabase, user.id);
+    if (isLowTrust(creditScore)) {
+      const { count: recentCommentCount } = await supabase
+        .from("comments")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", user.id)
+        .gte("created_at", minutesAgo(10));
+
+      if ((recentCommentCount ?? 0) >= trustLimits.commentWindowLimit) {
+        return { ok: false, error: optimisticSaveError };
+      }
+    }
+
+    const { data, error } = await supabase
+      .from("comments")
+      .insert({ idea_id: ideaId, user_id: user.id, body: trimmedBody })
+      .select("id,body,created_at,user_id,profiles(id,username,display_name,credit_score)")
+      .single();
+
+    if (error || !data) return optimisticFailure(error);
+
+    await createIdeaNotification({
+      supabase,
+      actorId: user.id,
+      ideaId,
+      type: "comment",
+      title: "コメント・改善提案が届きました",
+      body: trimmedBody.slice(0, 120),
+    });
+
+    revalidatePath("/feed");
+    revalidatePath(`/ideas/${ideaId}`);
+    return { ok: true, data: { ...(data as unknown as Omit<OptimisticComment, "likes_count">), likes_count: 0 } };
+  } catch (error) {
+    return optimisticFailure(error);
+  }
+}
+
 export async function toggleLike(targetType: LikeTargetType, targetId: string, returnPath: string) {
   const { supabase, user } = await requireUser();
   const existing = await supabase
@@ -819,19 +1126,48 @@ export async function toggleLike(targetType: LikeTargetType, targetId: string, r
   revalidatePath(returnPath);
 }
 
+export async function setLikeOptimistic(targetType: LikeTargetType, targetId: string, shouldLike: boolean, returnPath: string): Promise<OptimisticResult> {
+  try {
+    const { supabase, user } = await requireUser();
+    const existing = await supabase
+      .from("likes")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("target_type", targetType)
+      .eq("target_id", targetId)
+      .maybeSingle();
+
+    if (existing.error) return optimisticFailure(existing.error);
+
+    if (shouldLike && !existing.data) {
+      const { error } = await supabase.from("likes").insert({ user_id: user.id, target_type: targetType, target_id: targetId });
+      if (error) return optimisticFailure(error);
+    } else if (!shouldLike && existing.data) {
+      const { error } = await supabase.from("likes").delete().eq("id", (existing.data as { id: string }).id);
+      if (error) return optimisticFailure(error);
+    }
+
+    revalidatePath(returnPath);
+    return { ok: true };
+  } catch (error) {
+    return optimisticFailure(error);
+  }
+}
+
 export async function selfExecuteIdea(ideaId: string) {
   const { supabase, user } = await requireUser();
-  const { data: idea } = await supabase
+  const { data: idea, error: ideaError } = await supabase
     .from("ideas")
     .select("user_id,status")
     .eq("id", ideaId)
     .single();
 
-  if (!idea || (idea as { user_id: string }).user_id !== user.id) {
+  if (ideaError || !idea || (idea as { user_id: string }).user_id !== user.id) {
+    if (ideaError) console.error(ideaError);
     redirect(`/ideas/${ideaId}?error=execution`);
   }
 
-  await supabase
+  const { error: updateError } = await supabase
     .from("ideas")
     .update({
       status: "completed",
@@ -841,9 +1177,24 @@ export async function selfExecuteIdea(ideaId: string) {
     .eq("id", ideaId)
     .eq("user_id", user.id);
 
-  await supabase.from("executions").delete().eq("idea_id", ideaId).eq("user_id", user.id);
-  await supabase.from("executions").insert({ idea_id: ideaId, user_id: user.id, kind: "self", note: "自分で実行しました" });
+  if (updateError) {
+    console.error(updateError);
+    redirect(`/ideas/${ideaId}?error=execution`);
+  }
 
+  const { error: deleteError } = await supabase.from("executions").delete().eq("idea_id", ideaId).eq("user_id", user.id);
+  if (deleteError) {
+    console.error(deleteError);
+    redirect(`/ideas/${ideaId}?error=execution`);
+  }
+
+  const { error: insertError } = await supabase.from("executions").insert({ idea_id: ideaId, user_id: user.id, kind: "self", note: "自分で実行しました" });
+  if (insertError) {
+    console.error(insertError);
+    redirect(`/ideas/${ideaId}?error=execution`);
+  }
+
+  revalidatePath("/feed");
   revalidatePath("/ideas");
   revalidatePath(`/ideas/${ideaId}`);
   redirect(`/ideas/${ideaId}`);
