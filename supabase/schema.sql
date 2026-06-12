@@ -40,6 +40,7 @@ create table public.comments (
   idea_id uuid not null references public.ideas(id) on delete cascade,
   user_id uuid not null references public.profiles(id) on delete cascade,
   body text not null,
+  image_path text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -584,7 +585,8 @@ create index mental_seesaw_suggestions_seesaw_id_idx on public.mental_seesaw_sug
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values
   ('avatars', 'avatars', true, 2097152, array['image/jpeg', 'image/png', 'image/webp', 'image/gif']),
-  ('idea-images', 'idea-images', false, 5242880, array['image/jpeg', 'image/png', 'image/webp', 'image/gif'])
+  ('idea-images', 'idea-images', false, 5242880, array['image/jpeg', 'image/png', 'image/webp', 'image/gif']),
+  ('comment-images', 'comment-images', false, 5242880, array['image/jpeg', 'image/png', 'image/webp'])
 on conflict (id) do update
 set public = excluded.public,
     file_size_limit = excluded.file_size_limit,
@@ -673,6 +675,38 @@ for update using (
 create policy "users can delete own idea images" on storage.objects
 for delete using (
   bucket_id = 'idea-images'
+  and auth.role() = 'authenticated'
+  and (storage.foldername(name))[1] = auth.uid()::text
+);
+
+create policy "comment images are visible with comments" on storage.objects
+for select using (
+  bucket_id = 'comment-images'
+  and (
+    (auth.role() = 'authenticated' and (storage.foldername(name))[1] = auth.uid()::text)
+    or exists (
+      select 1
+      from public.comments
+      join public.ideas on ideas.id = comments.idea_id
+      where comments.image_path = storage.objects.name
+        and (
+          (ideas.visibility = 'public' and ideas.status in ('active', 'completed'))
+          or ideas.user_id = auth.uid()
+        )
+    )
+  )
+);
+
+create policy "users can upload own comment images" on storage.objects
+for insert with check (
+  bucket_id = 'comment-images'
+  and auth.role() = 'authenticated'
+  and (storage.foldername(name))[1] = auth.uid()::text
+);
+
+create policy "users can delete own comment images" on storage.objects
+for delete using (
+  bucket_id = 'comment-images'
   and auth.role() = 'authenticated'
   and (storage.foldername(name))[1] = auth.uid()::text
 );

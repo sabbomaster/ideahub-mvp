@@ -21,6 +21,8 @@ type OptimisticComment = {
   created_at: string;
   user_id: string;
   profiles: { id: string; username: string | null; display_name: string | null; credit_score?: number } | null;
+  image_path: string | null;
+  image_url: string | null;
   likes_count: number;
 };
 
@@ -127,7 +129,7 @@ async function uploadImageFile({
   maxSize,
   userId,
 }: {
-  bucket: "avatars" | "idea-images";
+  bucket: "avatars" | "comment-images" | "idea-images";
   file: File | null;
   maxSize: number;
   userId: string;
@@ -156,6 +158,15 @@ async function uploadImageFile({
   }
 
   return path;
+}
+
+function getCommentImageFile(formData: FormData) {
+  const file = formData.get("image");
+  if (!(file instanceof File) || file.size === 0) return null;
+  if (!["image/jpeg", "image/png", "image/webp"].includes(file.type) || file.size > 5 * 1024 * 1024) {
+    throw new Error("invalid_comment_image");
+  }
+  return file;
 }
 
 async function uploadIdeaImages(files: File[], userId: string) {
@@ -1078,11 +1089,17 @@ export async function addComment(ideaId: string, formData: FormData) {
   revalidatePath(`/ideas/${ideaId}`);
 }
 
-export async function addCommentOptimistic(ideaId: string, body: string): Promise<OptimisticResult<OptimisticComment>> {
+export async function addCommentOptimistic(ideaId: string, formData: FormData): Promise<OptimisticResult<OptimisticComment>> {
   try {
     const { supabase, user } = await requireUser();
-    const trimmedBody = body.trim();
+    const trimmedBody = String(formData.get("body") ?? "").trim();
     if (!trimmedBody) return { ok: false, error: optimisticSaveError };
+    let imageFile: File | null = null;
+    try {
+      imageFile = getCommentImageFile(formData);
+    } catch (imageError) {
+      return optimisticFailure(imageError);
+    }
 
     const creditScore = await getCreditScore(supabase, user.id);
     if (isLowTrust(creditScore)) {
@@ -1097,10 +1114,24 @@ export async function addCommentOptimistic(ideaId: string, body: string): Promis
       }
     }
 
+    let imagePath: string | null = null;
+    if (imageFile) {
+      try {
+        imagePath = await uploadImageFile({
+          bucket: "comment-images",
+          file: imageFile,
+          maxSize: 5 * 1024 * 1024,
+          userId: user.id,
+        });
+      } catch (uploadError) {
+        return optimisticFailure(uploadError);
+      }
+    }
+
     const { data, error } = await supabase
       .from("comments")
-      .insert({ idea_id: ideaId, user_id: user.id, body: trimmedBody })
-      .select("id,body,created_at,user_id,profiles(id,username,display_name,credit_score)")
+      .insert({ idea_id: ideaId, user_id: user.id, body: trimmedBody, image_path: imagePath })
+      .select("id,body,image_path,created_at,user_id,profiles(id,username,display_name,credit_score)")
       .single();
 
     if (error || !data) return optimisticFailure(error);
@@ -1116,7 +1147,42 @@ export async function addCommentOptimistic(ideaId: string, body: string): Promis
 
     revalidatePath("/feed");
     revalidatePath(`/ideas/${ideaId}`);
-    return { ok: true, data: { ...(data as unknown as Omit<OptimisticComment, "likes_count">), likes_count: 0 } };
+    const savedComment = data as unknown as Omit<OptimisticComment, "image_url" | "likes_count">;
+    const signedUrl = savedComment.image_path
+      ? (await supabase.storage.from("comment-images").createSignedUrl(savedComment.image_path, 60 * 60)).data?.signedUrl ?? null
+      : null;
+    return { ok: true, data: { ...savedComment, image_url: signedUrl, likes_count: 0 } };
+  } catch (error) {
+    return optimisticFailure(error);
+  }
+}
+
+export async function deleteCommentOptimistic(commentId: string): Promise<OptimisticResult> {
+  try {
+    const { supabase, user } = await requireUser();
+    const { data: comment, error: commentError } = await supabase
+      .from("comments")
+      .select("id,user_id,idea_id,image_path")
+      .eq("id", commentId)
+      .single();
+
+    if (commentError || !comment) return optimisticFailure(commentError);
+    const typedComment = comment as { idea_id: string; image_path: string | null; user_id: string };
+    if (typedComment.user_id !== user.id) {
+      return { ok: false, error: optimisticSaveError };
+    }
+
+    await supabase.from("likes").delete().eq("target_type", "comment").eq("target_id", commentId);
+    const { error } = await supabase.from("comments").delete().eq("id", commentId).eq("user_id", user.id);
+    if (error) return optimisticFailure(error);
+
+    if (typedComment.image_path?.startsWith(`${user.id}/`)) {
+      const { error: removeError } = await supabase.storage.from("comment-images").remove([typedComment.image_path]);
+      if (removeError) console.error(removeError);
+    }
+
+    revalidatePath(`/ideas/${typedComment.idea_id}`);
+    return { ok: true };
   } catch (error) {
     return optimisticFailure(error);
   }

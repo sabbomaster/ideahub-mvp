@@ -46,13 +46,14 @@ type IdeaCardProps = {
   currentUserId?: string | null;
   idea: IdeaCardData;
   showExecutionReportAction?: boolean;
+  variant?: "manage" | "profile";
 };
 
 function updateCount(counts: { count: number }[] | undefined, delta: number) {
   return [{ count: Math.max(0, (counts?.[0]?.count ?? 0) + delta) }];
 }
 
-export function IdeaCard({ currentUserId, idea: initialIdea, showExecutionReportAction = true }: IdeaCardProps) {
+export function IdeaCard({ currentUserId, idea: initialIdea, showExecutionReportAction = true, variant = "manage" }: IdeaCardProps) {
   const [idea, setIdea] = useState(initialIdea);
   const [isDeleted, setIsDeleted] = useState(false);
   const [pendingAction, setPendingAction] = useState<string | null>(null);
@@ -67,6 +68,7 @@ export function IdeaCard({ currentUserId, idea: initialIdea, showExecutionReport
   const visibility = idea.visibility ?? "public";
   const executionPermission = idea.execution_permission ?? "public";
   const canManage = currentUserId === idea.user_id;
+  const showManageActions = variant === "manage" && canManage;
 
   function showSaveError() {
     setToast(saveErrorMessage);
@@ -218,7 +220,23 @@ export function IdeaCard({ currentUserId, idea: initialIdea, showExecutionReport
               </span>
             </div>
           </div>
-          {canManage ? (
+          {variant === "profile" ? (
+            <div className="grid grid-cols-3 gap-2 border-t pt-4 text-center text-xs text-muted-foreground">
+              <div className="rounded-md bg-muted px-2 py-2">
+                <div className="text-base font-semibold text-foreground">{idea.executions[0]?.count ?? 0}</div>
+                実行
+              </div>
+              <div className="rounded-md bg-muted px-2 py-2">
+                <div className="text-base font-semibold text-foreground">{idea.likes[0]?.count ?? 0}</div>
+                いいね
+              </div>
+              <div className="rounded-md bg-muted px-2 py-2">
+                <div className="text-base font-semibold text-foreground">{idea.comments[0]?.count ?? 0}</div>
+                コメント
+              </div>
+            </div>
+          ) : null}
+          {showManageActions ? (
             <div className="grid gap-2 border-t pt-4 sm:flex sm:flex-wrap">
               {isArchived ? (
                 <>
@@ -250,7 +268,7 @@ export function IdeaCard({ currentUserId, idea: initialIdea, showExecutionReport
               )}
             </div>
           ) : null}
-          {showExecutionReportAction && !canManage && currentUserId && !isArchived && visibility === "public" && !isSelfImprovement && executionPermission === "public" ? (
+          {variant === "manage" && showExecutionReportAction && !canManage && currentUserId && !isArchived && visibility === "public" && !isSelfImprovement && executionPermission === "public" ? (
             <div className="grid gap-2 border-t pt-4 sm:flex sm:flex-wrap">
               <form action={markExecutionReport.bind(null, idea.id)}>
                 <input type="hidden" name="note" value="実行しました" />

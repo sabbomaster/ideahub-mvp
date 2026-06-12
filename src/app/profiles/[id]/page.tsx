@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { getIdeaCards } from "@/lib/queries";
+import { getIdeaCards, getMyExecutedIdeaCards } from "@/lib/queries";
 import type { SupabaseLikeClient } from "@/lib/queries";
 import type { Profile } from "@/lib/database.types";
 import { createClient } from "@/lib/supabase/server";
@@ -38,9 +38,10 @@ export default async function ProfilePage({
 
   const isMe = user?.id === id;
   const ideaClient = supabase as unknown as SupabaseLikeClient;
-  const [{ data: profile }, ideas, ideaCount, executionCount, improvementCount] = await Promise.all([
+  const [{ data: profile }, ideas, executedIdeas, ideaCount, executionCount, improvementCount] = await Promise.all([
     supabase.from("profiles").select("*").eq("id", id).single(),
     getIdeaCards(ideaClient, { includeNonPublic: isMe, userId: id }),
+    getMyExecutedIdeaCards(ideaClient, id, 6),
     supabase.from("ideas").select("id", { count: "exact", head: true }).eq("user_id", id),
     supabase.from("executions").select("id", { count: "exact", head: true }).eq("user_id", id),
     supabase.from("comments").select("id", { count: "exact", head: true }).eq("user_id", id),
@@ -116,17 +117,46 @@ export default async function ProfilePage({
       </aside>
 
       <section className="space-y-4">
+        <div className="rounded-md border bg-card p-5">
+          <div className="grid gap-4 sm:grid-cols-[1.4fr_1fr_1fr]">
+            <div>
+              <div className="text-sm text-muted-foreground">実行済みアイデア</div>
+              <div className="mt-2 text-4xl font-bold tracking-normal">{stats.executions}</div>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">このユーザーが実際に動かしたアイデアの数です。</p>
+            </div>
+            <div className="rounded-md bg-muted p-4">
+              <div className="text-sm text-muted-foreground">投稿</div>
+              <div className="mt-2 text-2xl font-semibold">{stats.ideas}</div>
+            </div>
+            <div className="rounded-md bg-muted p-4">
+              <div className="text-sm text-muted-foreground">改善コメント</div>
+              <div className="mt-2 text-2xl font-semibold">{stats.improvements}</div>
+            </div>
+          </div>
+        </div>
+
         <div className="flex items-center justify-between gap-3">
-          <h1 className="text-2xl font-semibold tracking-normal">投稿したアイデア</h1>
+          <h1 className="text-2xl font-semibold tracking-normal">最近実行したアイデア</h1>
           {isMe ? (
             <Button asChild>
-              <Link href="/ideas/new">投稿する</Link>
+              <Link href="/ideas">マイアイデアを管理</Link>
             </Button>
           ) : null}
         </div>
         <div className="grid gap-4">
+          {executedIdeas.length ? (
+            executedIdeas.map((idea) => <IdeaCard key={idea.id} currentUserId={user?.id} idea={idea} showExecutionReportAction={false} variant="profile" />)
+          ) : (
+            <p>実行記録はまだありません。</p>
+          )}
+        </div>
+
+        <div className="border-t pt-6">
+          <h2 className="text-xl font-semibold tracking-normal">投稿したアイデア</h2>
+        </div>
+        <div className="grid gap-4">
           {ideas.length ? (
-            ideas.map((idea) => <IdeaCard key={idea.id} currentUserId={user?.id} idea={idea} />)
+            ideas.map((idea) => <IdeaCard key={idea.id} currentUserId={user?.id} idea={idea} showExecutionReportAction={false} variant="profile" />)
           ) : (
             <p>投稿はまだありません。</p>
           )}

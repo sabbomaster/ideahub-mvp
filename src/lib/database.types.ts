@@ -46,6 +46,7 @@ export type Comment = {
   idea_id: string;
   user_id: string;
   body: string;
+  image_path: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -123,7 +124,7 @@ export type Database = {
       };
       comments: {
         Row: Comment;
-        Insert: Omit<Comment, "id" | "created_at" | "updated_at">;
+        Insert: Omit<Comment, "id" | "created_at" | "updated_at" | "image_path"> & Partial<Pick<Comment, "image_path">>;
         Update: Partial<Omit<Comment, "id" | "idea_id" | "user_id" | "created_at">>;
         Relationships: [];
       };

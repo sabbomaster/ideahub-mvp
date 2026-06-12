@@ -1,12 +1,14 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element */
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FormEvent, useState } from "react";
-import { Archive, CheckCircle2, Edit3, Heart, MessageCircle, Rocket, RotateCcw, ShieldAlert, Trash2 } from "lucide-react";
+import { ChangeEvent, FormEvent, useState } from "react";
+import { Archive, CheckCircle2, Edit3, Heart, ImagePlus, MessageCircle, Rocket, RotateCcw, ShieldAlert, Trash2, X } from "lucide-react";
 import {
   addCommentOptimistic,
   archiveIdeaOptimistic,
+  deleteCommentOptimistic,
   deleteArchivedIdeaOptimistic,
   markExecutionReport,
   reportTarget,
@@ -20,6 +22,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { formatDate } from "@/lib/utils";
 import type { ExecutionKind, ExecutionPermission, IdeaSource, IdeaStatus, IdeaVisibility } from "@/lib/database.types";
 
@@ -53,6 +56,8 @@ export type IdeaDetailData = {
 export type CommentData = {
   id: string;
   body: string;
+  image_path: string | null;
+  image_url: string | null;
   created_at: string;
   user_id: string;
   profiles: ProfileLite | ProfileLite[] | null;
@@ -117,6 +122,9 @@ export function IdeaDetailClient({
   const [likedCommentIds, setLikedCommentIds] = useState(() => new Set(initialLikedCommentIds));
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const [commentBody, setCommentBody] = useState("");
+  const [commentImage, setCommentImage] = useState<File | null>(null);
+  const [commentImagePreview, setCommentImagePreview] = useState<string | null>(null);
+  const [commentImageInputKey, setCommentImageInputKey] = useState(0);
   const [toast, setToast] = useState<string | null>(null);
 
   const isArchived = idea.status === "archived";
@@ -149,11 +157,16 @@ export function IdeaDetailClient({
   async function handleCommentSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (pendingAction || !currentUserId || !commentBody.trim()) return;
+    const formData = new FormData();
+    formData.set("body", commentBody.trim());
+    if (commentImage) formData.set("image", commentImage);
 
     const temporaryId = `temp-${crypto.randomUUID()}`;
     const optimisticComment: CommentData = {
       id: temporaryId,
       body: commentBody.trim(),
+      image_path: null,
+      image_url: commentImagePreview,
       created_at: new Date().toISOString(),
       user_id: currentUserId,
       profiles: currentUserProfile,
@@ -163,17 +176,57 @@ export function IdeaDetailClient({
     setPendingAction("comment");
     setComments((current) => [...current, optimisticComment]);
     setCommentBody("");
+    setCommentImage(null);
+    setCommentImagePreview(null);
+    setCommentImageInputKey((current) => current + 1);
 
-    const result = await addCommentOptimistic(idea.id, optimisticComment.body);
+    const result = await addCommentOptimistic(idea.id, formData);
     setPendingAction(null);
     if (!result.ok) {
       setComments(previousComments);
       setCommentBody(optimisticComment.body);
+      setCommentImage(commentImage);
+      setCommentImagePreview(commentImagePreview);
       showSaveError();
       return;
     }
 
     setComments((current) => current.map((comment) => (comment.id === temporaryId ? result.data : comment)));
+  }
+
+  function handleCommentImageChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0] ?? null;
+    if (!file) {
+      setCommentImage(null);
+      setCommentImagePreview(null);
+      return;
+    }
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type) || file.size > 5 * 1024 * 1024) {
+      showSaveError();
+      event.target.value = "";
+      return;
+    }
+    setCommentImage(file);
+    setCommentImagePreview(URL.createObjectURL(file));
+  }
+
+  function clearCommentImage() {
+    setCommentImage(null);
+    setCommentImagePreview(null);
+    setCommentImageInputKey((current) => current + 1);
+  }
+
+  async function handleCommentDelete(commentId: string) {
+    if (pendingAction || commentId.startsWith("temp-") || !window.confirm("このコメントを削除します。よろしいですか？")) return;
+    const previousComments = comments;
+    setPendingAction(`comment-delete-${commentId}`);
+    setComments((current) => current.filter((comment) => comment.id !== commentId));
+    const result = await deleteCommentOptimistic(commentId);
+    setPendingAction(null);
+    if (!result.ok) {
+      setComments(previousComments);
+      showSaveError();
+    }
   }
 
   async function handleCommentLike(commentId: string) {
@@ -350,9 +403,25 @@ export function IdeaDetailClient({
             <CardContent className="space-y-5">
               <form onSubmit={handleCommentSubmit} className="space-y-3">
                 <Textarea value={commentBody} onChange={(event) => setCommentBody(event.target.value)} placeholder="アイデアへの感想や改善提案を書く" required />
-                <Button type="submit" disabled={disabled || !commentBody.trim()}>
-                  コメントする
-                </Button>
+                {commentImagePreview ? (
+                  <div className="relative w-fit max-w-full">
+                    <img src={commentImagePreview} alt="" className="max-h-48 max-w-full rounded-md border object-contain" />
+                    <Button type="button" variant="outline" size="icon" className="absolute right-2 top-2 bg-background/90" onClick={clearCommentImage} aria-label="画像を取り消す">
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ) : null}
+                <div className="flex flex-wrap items-center gap-2">
+                  <label className="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-md border px-3 text-sm font-medium hover:bg-accent hover:text-accent-foreground">
+                    <ImagePlus className="h-4 w-4" />
+                    画像を添付
+                    <Input key={commentImageInputKey} type="file" name="image" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={handleCommentImageChange} />
+                  </label>
+                  <Button type="submit" disabled={disabled || !commentBody.trim()}>
+                    {pendingAction === "comment" ? "投稿中..." : commentImage ? "画像をアップロードして投稿" : "コメントする"}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">画像は1枚まで。JPG / PNG / WebP、5MBまで。</p>
               </form>
               <div className="space-y-4">
                 {comments.map((comment) => (
@@ -364,6 +433,7 @@ export function IdeaDetailClient({
                       <span>{comment.id.startsWith("temp-") ? "保存中..." : formatDate(comment.created_at)}</span>
                     </div>
                     <p className="whitespace-pre-wrap break-words text-sm leading-6">{comment.body}</p>
+                    {comment.image_url ? <img src={comment.image_url} alt="" className="mt-3 max-h-72 max-w-full rounded-md border object-contain" /> : null}
                     <div className="mt-3 flex flex-wrap gap-2">
                       <Button
                         type="button"
@@ -375,6 +445,19 @@ export function IdeaDetailClient({
                         <Heart className="mr-2 h-4 w-4" />
                         {comment.likes_count}
                       </Button>
+                      {currentUserId === comment.user_id ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="text-destructive"
+                          onClick={() => handleCommentDelete(comment.id)}
+                          disabled={disabled || comment.id.startsWith("temp-")}
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          {pendingAction === `comment-delete-${comment.id}` ? "削除中..." : "削除"}
+                        </Button>
+                      ) : null}
                       <ReportForm targetType="comment" targetId={comment.id} returnPath={returnPath} />
                     </div>
                   </div>

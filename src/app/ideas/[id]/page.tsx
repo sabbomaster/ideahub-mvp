@@ -42,7 +42,7 @@ export default async function IdeaDetailPage({
   const [{ data: comments }, { data: liked }, { data: executions }, { data: currentUserProfile }] = await Promise.all([
     supabase
       .from("comments")
-      .select("id,body,created_at,user_id,profiles(id,username,display_name,credit_score)")
+      .select("id,body,image_path,created_at,user_id,profiles(id,username,display_name,credit_score)")
       .eq("idea_id", id)
       .order("created_at", { ascending: true }),
     user
@@ -77,10 +77,18 @@ export default async function IdeaDetailPage({
   ((commentLikes ?? []) as { target_id: string }[]).forEach((like) => {
     commentLikeCounts.set(like.target_id, (commentLikeCounts.get(like.target_id) ?? 0) + 1);
   });
-  const typedComments = ((comments ?? []) as unknown as Omit<CommentData, "likes_count">[]).map((comment) => ({
-    ...comment,
-    likes_count: commentLikeCounts.get(comment.id) ?? 0,
-  }));
+  const typedComments = await Promise.all(
+    ((comments ?? []) as unknown as Omit<CommentData, "image_url" | "likes_count">[]).map(async (comment) => {
+      const imageUrl = comment.image_path
+        ? (await supabase.storage.from("comment-images").createSignedUrl(comment.image_path, 60 * 60)).data?.signedUrl ?? null
+        : null;
+      return {
+        ...comment,
+        image_url: imageUrl,
+        likes_count: commentLikeCounts.get(comment.id) ?? 0,
+      };
+    }),
+  );
 
   idea.likes_count = ideaLikes?.length ?? 0;
   idea.executions_count = typedExecutions.length;
