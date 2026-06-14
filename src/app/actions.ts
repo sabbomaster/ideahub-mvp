@@ -26,6 +26,55 @@ type OptimisticComment = {
   likes_count: number;
 };
 
+type IdeaPostFailureContext = {
+  body: string;
+  category: string;
+  email?: string | null;
+  executionPermission: string;
+  supabase: Awaited<ReturnType<typeof createClient>>;
+  title: string;
+  userId: string;
+  visibility: string;
+};
+
+function getErrorMessage(error: unknown) {
+  if (error instanceof Error) return error.message;
+  if (error && typeof error === "object" && "message" in error) return String((error as { message?: unknown }).message ?? "unknown_error");
+  if (typeof error === "string") return error;
+  return "unknown_error";
+}
+
+function getStackTrace(error: unknown) {
+  if (error instanceof Error) return error.stack ?? null;
+  if (error && typeof error === "object" && "stack" in error) return String((error as { stack?: unknown }).stack ?? "") || null;
+  return null;
+}
+
+async function logIdeaPostFailure(context: IdeaPostFailureContext, error: unknown) {
+  const occurredAt = new Date().toISOString();
+  const payload = {
+    user_id: context.userId,
+    email: context.email ?? null,
+    title_length: context.title.length,
+    body_length: context.body.length,
+    category: context.category || null,
+    visibility: context.visibility || null,
+    execution_permission: context.executionPermission || null,
+    error_message: getErrorMessage(error),
+    stack_trace: getStackTrace(error),
+    occurred_at: occurredAt,
+  };
+
+  console.error("[idea-post-failure]", payload, error);
+
+  try {
+    const { error: logError } = await context.supabase.from("idea_post_error_logs").insert(payload);
+    if (logError) console.error("[idea-post-failure] failed to persist log", logError);
+  } catch (logError) {
+    console.error("[idea-post-failure] failed to persist log", logError);
+  }
+}
+
 function optimisticFailure(error: unknown): { ok: false; error: string } {
   if (error) console.error(error);
   return { ok: false, error: optimisticSaveError };
@@ -515,21 +564,33 @@ export async function createIdea(formData: FormData) {
   const visibility = String(formData.get("visibility") ?? "public") as IdeaVisibility;
   const executionPermission = String(formData.get("execution_permission") ?? "public") as ExecutionPermission;
   const normalizedExecutionPermission = visibility === "private" ? "owner_only" : executionPermission;
+  const logContext: IdeaPostFailureContext = {
+    body,
+    category: type,
+    email: user.email ?? null,
+    executionPermission: normalizedExecutionPermission,
+    supabase,
+    title,
+    userId: user.id,
+    visibility,
+  };
   let imageFiles: File[] = [];
 
   if (!title || !body || !["rough", "serious"].includes(type) || !["public", "private"].includes(visibility) || !["owner_only", "public"].includes(executionPermission)) {
+    await logIdeaPostFailure(logContext, new Error("invalid_idea_post_input"));
     redirect("/ideas/new?error=missing");
   }
 
   try {
     imageFiles = getImageFiles(formData);
   } catch (imageError) {
-    console.error(imageError);
+    await logIdeaPostFailure(logContext, imageError);
     redirect("/ideas/new?error=image");
   }
 
   const creditScore = await getCreditScore(supabase, user.id);
   if (isLowTrust(creditScore) && hasExternalLink(`${title}\n${body}`)) {
+    await logIdeaPostFailure(logContext, new Error("external_link_blocked_for_low_trust_user"));
     redirect("/ideas/new?error=external_link");
   }
 
@@ -547,9 +608,11 @@ export async function createIdea(formData: FormData) {
   ]);
 
   if (isLowTrust(creditScore) && (dailyIdeaCount ?? 0) >= trustLimits.dailyIdeaLimit) {
+    await logIdeaPostFailure(logContext, new Error("daily_idea_limit_exceeded"));
     redirect("/ideas/new?error=daily_limit");
   }
   if (isLowTrust(creditScore) && (recentIdeaCount ?? 0) >= trustLimits.recentIdeaLimit) {
+    await logIdeaPostFailure(logContext, new Error("recent_idea_limit_exceeded"));
     redirect("/ideas/new?error=recent_limit");
   }
 
@@ -557,7 +620,7 @@ export async function createIdea(formData: FormData) {
   try {
     imageUrls = await uploadIdeaImages(imageFiles, user.id);
   } catch (uploadError) {
-    console.error(uploadError);
+    await logIdeaPostFailure(logContext, uploadError);
     redirect("/ideas/new?error=image");
   }
 
@@ -573,7 +636,7 @@ export async function createIdea(formData: FormData) {
   });
 
   if (error) {
-    console.error(error);
+    await logIdeaPostFailure(logContext, error);
     redirect("/ideas/new?error=save");
   }
 
@@ -585,6 +648,8 @@ export async function createIdea(formData: FormData) {
 }
 
 export async function createIdeaOptimistic(formData: FormData): Promise<OptimisticResult<IdeaCardData>> {
+  let logContext: IdeaPostFailureContext | null = null;
+
   try {
     const { supabase, user } = await requireUser();
     const title = String(formData.get("title") ?? "").trim();
@@ -593,8 +658,19 @@ export async function createIdeaOptimistic(formData: FormData): Promise<Optimist
     const visibility = String(formData.get("visibility") ?? "public") as IdeaVisibility;
     const executionPermission = String(formData.get("execution_permission") ?? "public") as ExecutionPermission;
     const normalizedExecutionPermission = visibility === "private" ? "owner_only" : executionPermission;
+    logContext = {
+      body,
+      category: type,
+      email: user.email ?? null,
+      executionPermission: normalizedExecutionPermission,
+      supabase,
+      title,
+      userId: user.id,
+      visibility,
+    };
 
     if (!title || !body || !["rough", "serious"].includes(type) || !["public", "private"].includes(visibility) || !["owner_only", "public"].includes(executionPermission)) {
+      await logIdeaPostFailure(logContext, new Error("invalid_idea_post_input"));
       return { ok: false, error: optimisticSaveError };
     }
 
@@ -602,11 +678,13 @@ export async function createIdeaOptimistic(formData: FormData): Promise<Optimist
     try {
       imageFiles = getImageFiles(formData);
     } catch (imageError) {
-      return optimisticFailure(imageError);
+      await logIdeaPostFailure(logContext, imageError);
+      return { ok: false, error: optimisticSaveError };
     }
 
     const creditScore = await getCreditScore(supabase, user.id);
     if (isLowTrust(creditScore) && hasExternalLink(`${title}\n${body}`)) {
+      await logIdeaPostFailure(logContext, new Error("external_link_blocked_for_low_trust_user"));
       return { ok: false, error: optimisticSaveError };
     }
 
@@ -624,10 +702,20 @@ export async function createIdeaOptimistic(formData: FormData): Promise<Optimist
     ]);
 
     if (isLowTrust(creditScore) && ((dailyIdeaCount ?? 0) >= trustLimits.dailyIdeaLimit || (recentIdeaCount ?? 0) >= trustLimits.recentIdeaLimit)) {
+      await logIdeaPostFailure(
+        logContext,
+        new Error((dailyIdeaCount ?? 0) >= trustLimits.dailyIdeaLimit ? "daily_idea_limit_exceeded" : "recent_idea_limit_exceeded"),
+      );
       return { ok: false, error: optimisticSaveError };
     }
 
-    const imageUrls = await uploadIdeaImages(imageFiles, user.id);
+    let imageUrls: string[] = [];
+    try {
+      imageUrls = await uploadIdeaImages(imageFiles, user.id);
+    } catch (uploadError) {
+      await logIdeaPostFailure(logContext, uploadError);
+      return { ok: false, error: optimisticSaveError };
+    }
     const { data, error } = await supabase
       .from("ideas")
       .insert({
@@ -643,7 +731,10 @@ export async function createIdeaOptimistic(formData: FormData): Promise<Optimist
       .select("id,created_at,updated_at,image_url,image_urls")
       .single();
 
-    if (error || !data) return optimisticFailure(error);
+    if (error || !data) {
+      await logIdeaPostFailure(logContext, error ?? new Error("idea_insert_returned_no_data"));
+      return { ok: false, error: optimisticSaveError };
+    }
 
     const savedIdea = data as { created_at: string; id: string; image_url: string | null; image_urls: string[] | null; updated_at: string };
     return {
@@ -670,7 +761,12 @@ export async function createIdeaOptimistic(formData: FormData): Promise<Optimist
       },
     };
   } catch (error) {
-    return optimisticFailure(error);
+    if (logContext) {
+      await logIdeaPostFailure(logContext, error);
+    } else {
+      console.error("[createIdeaOptimistic] unexpected failure before idea post log context was available", error);
+    }
+    return { ok: false, error: optimisticSaveError };
   }
 }
 

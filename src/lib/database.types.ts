@@ -94,6 +94,20 @@ export type FeedbackReport = {
   created_at: string;
 };
 
+export type IdeaPostErrorLog = {
+  id: string;
+  user_id: string | null;
+  email: string | null;
+  title_length: number;
+  body_length: number;
+  category: string | null;
+  visibility: string | null;
+  execution_permission: string | null;
+  error_message: string;
+  stack_trace: string | null;
+  occurred_at: string;
+};
+
 export type Notification = {
   id: string;
   user_id: string;
@@ -183,6 +197,12 @@ export type Database = {
       feedback_reports: {
         Row: FeedbackReport;
         Insert: Omit<FeedbackReport, "id" | "created_at"> & Partial<Pick<FeedbackReport, "id" | "created_at">>;
+        Update: never;
+        Relationships: [];
+      };
+      idea_post_error_logs: {
+        Row: IdeaPostErrorLog;
+        Insert: Omit<IdeaPostErrorLog, "id" | "occurred_at"> & Partial<Pick<IdeaPostErrorLog, "id" | "occurred_at">>;
         Update: never;
         Relationships: [];
       };

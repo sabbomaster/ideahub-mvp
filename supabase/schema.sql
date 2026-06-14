@@ -83,6 +83,20 @@ create table public.feedback_reports (
   created_at timestamptz not null default now()
 );
 
+create table public.idea_post_error_logs (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references public.profiles(id) on delete set null,
+  email text,
+  title_length integer not null default 0,
+  body_length integer not null default 0,
+  category text,
+  visibility text,
+  execution_permission text,
+  error_message text not null,
+  stack_trace text,
+  occurred_at timestamptz not null default now()
+);
+
 create table public.notifications (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.profiles(id) on delete cascade,
@@ -316,6 +330,7 @@ alter table public.likes enable row level security;
 alter table public.executions enable row level security;
 alter table public.reports enable row level security;
 alter table public.feedback_reports enable row level security;
+alter table public.idea_post_error_logs enable row level security;
 alter table public.notifications enable row level security;
 alter table public.mental_seesaws enable row level security;
 alter table public.mental_seesaw_items enable row level security;
@@ -479,6 +494,9 @@ for insert with check (
   or auth.uid() = user_id
 );
 
+create policy "users can create own idea post error logs" on public.idea_post_error_logs
+for insert with check (auth.uid() = user_id);
+
 create policy "users can read own notifications" on public.notifications
 for select using (auth.uid() = user_id);
 
@@ -570,6 +588,8 @@ create index ideas_visibility_status_updated_at_idx on public.ideas(visibility, 
 create index ideas_user_status_created_at_idx on public.ideas(user_id, status, created_at desc);
 create index ideas_user_updated_at_idx on public.ideas(user_id, updated_at desc);
 create index feedback_reports_created_at_idx on public.feedback_reports(created_at desc);
+create index idea_post_error_logs_occurred_at_idx on public.idea_post_error_logs(occurred_at desc);
+create index idea_post_error_logs_user_occurred_at_idx on public.idea_post_error_logs(user_id, occurred_at desc);
 create index notifications_user_created_at_idx on public.notifications(user_id, created_at desc);
 create index notifications_user_unread_idx on public.notifications(user_id, read_at) where read_at is null;
 create index comments_idea_id_idx on public.comments(idea_id);
