@@ -17,6 +17,7 @@ import {
   updateIdeaStatusOptimistic,
 } from "@/app/actions";
 import { IdeaImageGrid } from "@/components/idea-image-grid";
+import { LinkifiedText } from "@/components/linkified-text";
 import { OptimisticToast } from "@/components/optimistic-toast";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -373,7 +374,9 @@ export function IdeaDetailClient({
           </CardHeader>
           <CardContent className="space-y-6">
             <IdeaImageGrid images={imageUrls} />
-            <p className="whitespace-pre-wrap break-words leading-8">{idea.body}</p>
+            <p className="whitespace-pre-wrap break-words leading-8">
+              <LinkifiedText text={idea.body} />
+            </p>
             {!isArchived ? (
               <div className="flex flex-wrap gap-2">
                 <Button type="button" variant={liked ? "default" : "outline"} size="sm" onClick={handleIdeaLike} disabled={disabled || !currentUserId}>
@@ -434,7 +437,9 @@ export function IdeaDetailClient({
                       </Link>
                       <span>{comment.id.startsWith("temp-") ? "保存中..." : formatDate(comment.created_at)}</span>
                     </div>
-                    <p className="whitespace-pre-wrap break-words text-sm leading-6">{comment.body}</p>
+                    <p className="whitespace-pre-wrap break-words text-sm leading-6">
+                      <LinkifiedText text={comment.body} />
+                    </p>
                     {comment.image_url ? <img src={comment.image_url} alt="" className="mt-3 max-h-72 max-w-full rounded-md border object-contain" /> : null}
                     <div className="mt-3 flex flex-wrap gap-2">
                       <Button

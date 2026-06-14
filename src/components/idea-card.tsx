@@ -12,6 +12,7 @@ import {
   updateIdeaStatusOptimistic,
 } from "@/app/actions";
 import { IdeaImageGrid } from "@/components/idea-image-grid";
+import { LinkifiedText } from "@/components/linkified-text";
 import { OptimisticToast } from "@/components/optimistic-toast";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -207,7 +208,9 @@ export function IdeaCard({ currentUserId, idea: initialIdea, showExecutionReport
         </CardHeader>
         <CardContent className="min-w-0 space-y-4">
           <IdeaImageGrid images={idea.image_urls?.length ? idea.image_urls : idea.image_url ? [idea.image_url] : []} />
-          <p className="line-clamp-3 whitespace-pre-wrap break-words text-sm leading-6 text-muted-foreground">{body}</p>
+          <p className="line-clamp-3 whitespace-pre-wrap break-words text-sm leading-6 text-muted-foreground">
+            <LinkifiedText text={body} />
+          </p>
           <div className="flex flex-col gap-3 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
             {profileId ? (
               <Link href={`/profiles/${profileId}`} className="break-words font-medium text-foreground hover:text-primary">

@@ -2,7 +2,6 @@ import { redirect } from "next/navigation";
 import { NewIdeaForm } from "@/components/new-idea-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/server";
-import { trustLimits } from "@/lib/trust";
 
 const errorMessages: Record<string, string> = {
   daily_limit: "今日は投稿数が上限に達しました。少し時間を置いてから投稿してください。",
@@ -11,7 +10,6 @@ const errorMessages: Record<string, string> = {
   missing: "タイトル、本文、投稿項目を確認してください。",
   recent_limit: "短時間に投稿が続いています。少し時間を置いてから投稿してください。",
   save: "投稿の保存に失敗しました。",
-  serious_trust: "プロジェクト枠への投稿は、一定の活動実績ができてから使えます。まずはアイデア枠で投稿してください。",
 };
 
 export default async function NewIdeaPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
@@ -22,10 +20,6 @@ export default async function NewIdeaPage({ searchParams }: { searchParams: Prom
   } = await supabase.auth.getUser();
 
   if (!user) redirect("/login");
-
-  const { data: profile } = await supabase.from("profiles").select("credit_score").eq("id", user.id).single();
-  const creditScore = ((profile as { credit_score?: number } | null)?.credit_score ?? 0);
-  const canUseSerious = creditScore >= trustLimits.seriousIdeaMinScore;
 
   return (
     <div className="container max-w-3xl py-6 sm:py-8">
@@ -39,7 +33,7 @@ export default async function NewIdeaPage({ searchParams }: { searchParams: Prom
               {errorMessages[error]}
             </div>
           ) : null}
-          <NewIdeaForm canUseSerious={canUseSerious} currentUserId={user.id} />
+          <NewIdeaForm currentUserId={user.id} />
         </CardContent>
       </Card>
     </div>

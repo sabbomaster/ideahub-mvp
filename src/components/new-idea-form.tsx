@@ -24,7 +24,6 @@ type Draft = {
 };
 
 type NewIdeaFormProps = {
-  canUseSerious: boolean;
   currentUserId: string;
   currentUserProfile?: ProfileLite | null;
   onIdeaFailed?: (temporaryId: string) => void;
@@ -50,7 +49,7 @@ const emptyDraft: Draft = {
   visibility: "public",
 };
 
-export function NewIdeaForm({ canUseSerious, currentUserId, currentUserProfile = null, onIdeaFailed, onIdeaSaved, onOptimisticIdea }: NewIdeaFormProps) {
+export function NewIdeaForm({ currentUserId, currentUserProfile = null, onIdeaFailed, onIdeaSaved, onOptimisticIdea }: NewIdeaFormProps) {
   const [draft, setDraft] = useState<Draft>(emptyDraft);
   const [isSaving, setIsSaving] = useState(false);
   const [fileInputKey, setFileInputKey] = useState(0);
@@ -191,11 +190,6 @@ export function NewIdeaForm({ canUseSerious, currentUserId, currentUserProfile =
   return (
     <>
       <form onSubmit={handleSubmit} className="space-y-5" aria-busy={isSaving}>
-        {!canUseSerious ? (
-          <div className="rounded-md border bg-muted px-4 py-3 text-sm leading-6 text-muted-foreground">
-            新規ユーザーは、まず「アイデア枠」から投稿できます。プロジェクト枠は活動実績が増えると使えるようになります。
-          </div>
-        ) : null}
         <div className="space-y-2">
           <label htmlFor="title" className="text-sm font-medium">
             タイトル
@@ -223,7 +217,7 @@ export function NewIdeaForm({ canUseSerious, currentUserId, currentUserProfile =
             onChange={(event) => updateDraft({ type: event.target.value as IdeaType })}
           >
             <option value="rough">💡 アイデア枠</option>
-            <option value="serious" disabled={!canUseSerious}>
+            <option value="serious">
               🚀 プロジェクト枠
             </option>
           </select>

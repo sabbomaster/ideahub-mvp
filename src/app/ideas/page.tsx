@@ -3,7 +3,6 @@ import { IdeasClient } from "@/components/ideas-client";
 import { getIdeaCards, getMyExecutedIdeaCards } from "@/lib/queries";
 import type { SupabaseLikeClient } from "@/lib/queries";
 import { createClient } from "@/lib/supabase/server";
-import { trustLimits } from "@/lib/trust";
 
 type MyIdeaBox = "active" | "completed" | "archived";
 type MyIdeaSort = "completed_first" | "created_asc" | "created_desc" | "title_asc" | "updated_desc";
@@ -37,11 +36,9 @@ export default async function IdeasPage({ searchParams }: { searchParams: Promis
     supabase.from("profiles").select("id,username,display_name,credit_score").eq("id", user.id).single(),
   ]);
   const profile = profileResult.data as { credit_score?: number; display_name: string | null; id: string; username: string | null } | null;
-  const canUseSerious = (profile?.credit_score ?? 0) >= trustLimits.seriousIdeaMinScore;
 
   return (
     <IdeasClient
-      canUseSerious={canUseSerious}
       currentBox={currentBox}
       currentSort={currentSort}
       currentUserId={user.id}

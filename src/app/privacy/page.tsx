@@ -85,8 +85,8 @@ export default function PrivacyPage() {
             <h2 className="text-xl font-semibold tracking-normal text-foreground">お問い合わせ先</h2>
             <p>
               プライバシーに関するお問い合わせは{" "}
-              <Link href="mailto:anyon8571@gmail.com" className="font-medium text-primary underline-offset-4 hover:underline">
-                anyon8571@gmail.com
+              <Link href="mailto:ideahub.contact.jp@gmail.com" className="font-medium text-primary underline-offset-4 hover:underline">
+                ideahub.contact.jp@gmail.com
               </Link>
               までご連絡ください。
             </p>

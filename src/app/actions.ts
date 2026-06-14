@@ -529,9 +529,6 @@ export async function createIdea(formData: FormData) {
   }
 
   const creditScore = await getCreditScore(supabase, user.id);
-  if (type === "serious" && creditScore < trustLimits.seriousIdeaMinScore) {
-    redirect("/ideas/new?error=serious_trust");
-  }
   if (isLowTrust(creditScore) && hasExternalLink(`${title}\n${body}`)) {
     redirect("/ideas/new?error=external_link");
   }
@@ -609,9 +606,6 @@ export async function createIdeaOptimistic(formData: FormData): Promise<Optimist
     }
 
     const creditScore = await getCreditScore(supabase, user.id);
-    if (type === "serious" && creditScore < trustLimits.seriousIdeaMinScore) {
-      return { ok: false, error: optimisticSaveError };
-    }
     if (isLowTrust(creditScore) && hasExternalLink(`${title}\n${body}`)) {
       return { ok: false, error: optimisticSaveError };
     }

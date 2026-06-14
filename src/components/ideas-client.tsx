@@ -51,7 +51,6 @@ function sortIdeas(ideas: IdeaCardData[], sort: MyIdeaSort) {
 }
 
 type IdeasClientProps = {
-  canUseSerious: boolean;
   currentBox: MyIdeaBox;
   currentSort: MyIdeaSort;
   currentUserId: string;
@@ -59,7 +58,7 @@ type IdeasClientProps = {
   initialIdeasByBox: Record<MyIdeaBox, IdeaCardData[]>;
 };
 
-export function IdeasClient({ canUseSerious, currentBox: initialBox, currentSort: initialSort, currentUserId, currentUserProfile, initialIdeasByBox }: IdeasClientProps) {
+export function IdeasClient({ currentBox: initialBox, currentSort: initialSort, currentUserId, currentUserProfile, initialIdeasByBox }: IdeasClientProps) {
   const [currentBox, setCurrentBox] = useState(initialBox);
   const [currentSort, setCurrentSort] = useState(initialSort);
   const [ideasByBox, setIdeasByBox] = useState(initialIdeasByBox);
@@ -114,7 +113,6 @@ export function IdeasClient({ canUseSerious, currentBox: initialBox, currentSort
       <section className="rounded-md border bg-card p-4">
         <h2 className="mb-4 text-lg font-semibold">アイデアを投稿</h2>
         <NewIdeaForm
-          canUseSerious={canUseSerious}
           currentUserId={currentUserId}
           currentUserProfile={currentUserProfile}
           onIdeaFailed={handleIdeaFailed}
