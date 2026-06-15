@@ -11,7 +11,8 @@ import { Textarea } from "@/components/ui/textarea";
 import type { IdeaCardData } from "@/components/idea-card";
 import type { ExecutionPermission, IdeaType, IdeaVisibility } from "@/lib/database.types";
 
-const saveErrorMessage = "投稿に失敗しました。時間をおいて再試行してください";
+const saveErrorMessage = "投稿に失敗しました";
+const saveSuccessMessage = "✅ 投稿しました";
 
 type ProfileLite = { id: string; username: string | null; display_name: string | null };
 
@@ -56,6 +57,7 @@ export function NewIdeaForm({ currentUserId, currentUserProfile = null, onIdeaFa
   const [selectedImages, setSelectedImages] = useState<SelectedImage[]>([]);
   const selectedImagesRef = useRef<SelectedImage[]>([]);
   const [toast, setToast] = useState<string | null>(null);
+  const [toastVariant, setToastVariant] = useState<"error" | "success">("error");
 
   useEffect(() => {
     selectedImagesRef.current = selectedImages;
@@ -68,8 +70,15 @@ export function NewIdeaForm({ currentUserId, currentUserProfile = null, onIdeaFa
   }, []);
 
   function showSaveError() {
+    setToastVariant("error");
     setToast(saveErrorMessage);
     window.setTimeout(() => setToast(null), 3200);
+  }
+
+  function showSaveSuccess() {
+    setToastVariant("success");
+    setToast(saveSuccessMessage);
+    window.setTimeout(() => setToast(null), 2600);
   }
 
   function updateDraft(nextDraft: Partial<Draft>) {
@@ -185,6 +194,7 @@ export function NewIdeaForm({ currentUserId, currentUserProfile = null, onIdeaFa
 
     submittedImages.forEach((image) => URL.revokeObjectURL(image.previewUrl));
     onIdeaSaved?.(temporaryIdea.id, { ...result.data, profiles: currentUserProfile });
+    showSaveSuccess();
   }
 
   return (
@@ -342,7 +352,7 @@ export function NewIdeaForm({ currentUserId, currentUserProfile = null, onIdeaFa
           {isSaving ? "投稿中..." : "投稿する"}
         </Button>
       </form>
-      <OptimisticToast message={toast} />
+      <OptimisticToast message={toast} variant={toastVariant} />
     </>
   );
 }

@@ -46,7 +46,7 @@ export default async function HomePage() {
                 </Link>
               </Button>
               <Button asChild variant="outline" size="lg" className="w-full sm:w-auto">
-                <Link href={user ? "/ideas" : "/login"}>マイアイデアを管理</Link>
+                <Link href="/login">マイアイデアを管理</Link>
               </Button>
             </div>
           </div>
