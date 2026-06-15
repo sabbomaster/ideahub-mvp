@@ -108,6 +108,17 @@ export type IdeaPostErrorLog = {
   occurred_at: string;
 };
 
+export type CommentErrorLog = {
+  id: string;
+  user_id: string | null;
+  idea_id: string | null;
+  body: string | null;
+  body_length: number;
+  error_code: string | null;
+  error_message: string;
+  occurred_at: string;
+};
+
 export type Notification = {
   id: string;
   user_id: string;
@@ -203,6 +214,12 @@ export type Database = {
       idea_post_error_logs: {
         Row: IdeaPostErrorLog;
         Insert: Omit<IdeaPostErrorLog, "id" | "occurred_at"> & Partial<Pick<IdeaPostErrorLog, "id" | "occurred_at">>;
+        Update: never;
+        Relationships: [];
+      };
+      comment_error_logs: {
+        Row: CommentErrorLog;
+        Insert: Omit<CommentErrorLog, "id" | "occurred_at"> & Partial<Pick<CommentErrorLog, "id" | "occurred_at">>;
         Update: never;
         Relationships: [];
       };

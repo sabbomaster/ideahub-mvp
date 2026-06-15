@@ -133,8 +133,8 @@ export function IdeaDetailClient({
   const isSelfImprovement = idea.source === "mental_seesaw";
   const returnPath = `/ideas/${idea.id}`;
 
-  function showSaveError() {
-    setToast(saveErrorMessage);
+  function showSaveError(message = saveErrorMessage) {
+    setToast(message);
     window.setTimeout(() => setToast(null), 3200);
   }
 
@@ -189,7 +189,7 @@ export function IdeaDetailClient({
       setCommentBody(optimisticComment.body);
       setCommentImage(commentImage);
       setCommentImagePreview(commentImagePreview);
-      showSaveError();
+      showSaveError(result.error);
       return;
     }
 

@@ -37,6 +37,13 @@ type IdeaPostFailureContext = {
   visibility: string;
 };
 
+type CommentFailureContext = {
+  body: string;
+  ideaId: string;
+  supabase: Awaited<ReturnType<typeof createClient>>;
+  userId: string;
+};
+
 function getErrorMessage(error: unknown) {
   if (error instanceof Error) return error.message;
   if (error && typeof error === "object" && "message" in error) return String((error as { message?: unknown }).message ?? "unknown_error");
@@ -48,6 +55,32 @@ function getStackTrace(error: unknown) {
   if (error instanceof Error) return error.stack ?? null;
   if (error && typeof error === "object" && "stack" in error) return String((error as { stack?: unknown }).stack ?? "") || null;
   return null;
+}
+
+function getErrorCode(error: unknown) {
+  if (error && typeof error === "object" && "code" in error) return String((error as { code?: unknown }).code ?? "") || null;
+  return null;
+}
+
+function getErrorDetails(error: unknown) {
+  if (error && typeof error === "object" && "details" in error) return String((error as { details?: unknown }).details ?? "") || null;
+  return null;
+}
+
+function getErrorHint(error: unknown) {
+  if (error && typeof error === "object" && "hint" in error) return String((error as { hint?: unknown }).hint ?? "") || null;
+  return null;
+}
+
+function getDetailedErrorMessage(error: unknown) {
+  const parts = [
+    getErrorCode(error) ? `code=${getErrorCode(error)}` : null,
+    `message=${getErrorMessage(error)}`,
+    getErrorDetails(error) ? `details=${getErrorDetails(error)}` : null,
+    getErrorHint(error) ? `hint=${getErrorHint(error)}` : null,
+  ].filter(Boolean);
+
+  return parts.join(" / ");
 }
 
 async function logIdeaPostFailure(context: IdeaPostFailureContext, error: unknown) {
@@ -72,6 +105,39 @@ async function logIdeaPostFailure(context: IdeaPostFailureContext, error: unknow
     if (logError) console.error("[idea-post-failure] failed to persist log", logError);
   } catch (logError) {
     console.error("[idea-post-failure] failed to persist log", logError);
+  }
+}
+
+async function logCommentFailure(context: CommentFailureContext, error: unknown) {
+  const occurredAt = new Date().toISOString();
+  const errorLog = {
+    code: getErrorCode(error),
+    message: getErrorMessage(error),
+    details: getErrorDetails(error),
+    hint: getErrorHint(error),
+  };
+
+  console.error({
+    userId: context.userId,
+    ideaId: context.ideaId,
+    body: context.body,
+    error,
+  });
+  console.error("[comment-insert-error]", errorLog);
+
+  try {
+    const { error: logError } = await context.supabase.from("comment_error_logs").insert({
+      user_id: context.userId,
+      idea_id: context.ideaId,
+      body: context.body,
+      body_length: context.body.length,
+      error_code: errorLog.code,
+      error_message: errorLog.message,
+      occurred_at: occurredAt,
+    });
+    if (logError) console.error("[comment-insert-error] failed to persist log", logError);
+  } catch (logError) {
+    console.error("[comment-insert-error] failed to persist log", logError);
   }
 }
 
@@ -1142,8 +1208,10 @@ export async function deleteArchivedIdeaOptimistic(ideaId: string): Promise<Opti
 export async function addComment(ideaId: string, formData: FormData) {
   const { supabase, user } = await requireUser();
   const body = String(formData.get("body") ?? "").trim();
+  const logContext: CommentFailureContext = { body, ideaId, supabase, userId: user.id };
 
   if (!body) {
+    await logCommentFailure(logContext, new Error("empty_comment_body"));
     redirect(`/ideas/${ideaId}?error=comment`);
   }
 
@@ -1156,13 +1224,14 @@ export async function addComment(ideaId: string, formData: FormData) {
       .gte("created_at", minutesAgo(10));
 
     if ((recentCommentCount ?? 0) >= trustLimits.commentWindowLimit) {
+      await logCommentFailure(logContext, new Error("comment_rate_limited"));
       redirect(`/ideas/${ideaId}?error=comment_rate`);
     }
   }
 
   const { error } = await supabase.from("comments").insert({ idea_id: ideaId, user_id: user.id, body });
   if (error) {
-    console.error(error);
+    await logCommentFailure(logContext, error);
     redirect(`/ideas/${ideaId}?error=comment`);
   }
 
@@ -1180,19 +1249,24 @@ export async function addComment(ideaId: string, formData: FormData) {
 }
 
 export async function addCommentOptimistic(ideaId: string, formData: FormData): Promise<OptimisticResult<OptimisticComment>> {
+  let logContext: CommentFailureContext | null = null;
+
   try {
     const { supabase, user } = await requireUser();
     const trimmedBody = String(formData.get("body") ?? "").trim();
+    logContext = { body: trimmedBody, ideaId, supabase, userId: user.id };
+
     if (!trimmedBody) {
-      console.error("[addCommentOptimistic] empty body", { ideaId, userId: user.id });
-      return { ok: false, error: optimisticSaveError };
+      const error = new Error("empty_comment_body");
+      await logCommentFailure(logContext, error);
+      return { ok: false, error: getDetailedErrorMessage(error) };
     }
     let imageFile: File | null = null;
     try {
       imageFile = getCommentImageFile(formData);
     } catch (imageError) {
-      console.error("[addCommentOptimistic] invalid image", { error: imageError, ideaId, userId: user.id });
-      return optimisticFailure(imageError);
+      await logCommentFailure(logContext, imageError);
+      return { ok: false, error: getDetailedErrorMessage(imageError) };
     }
 
     const creditScore = await getCreditScore(supabase, user.id);
@@ -1204,8 +1278,9 @@ export async function addCommentOptimistic(ideaId: string, formData: FormData): 
         .gte("created_at", minutesAgo(10));
 
       if ((recentCommentCount ?? 0) >= trustLimits.commentWindowLimit) {
-        console.error("[addCommentOptimistic] rate limited", { ideaId, recentCommentCount, userId: user.id });
-        return { ok: false, error: optimisticSaveError };
+        const error = new Error("comment_rate_limited");
+        await logCommentFailure(logContext, error);
+        return { ok: false, error: getDetailedErrorMessage(error) };
       }
     }
 
@@ -1217,8 +1292,9 @@ export async function addCommentOptimistic(ideaId: string, formData: FormData): 
         .single();
 
       if (error || !data) {
-        console.error("[addCommentOptimistic] text insert failed", { error, ideaId, userId: user.id });
-        return optimisticFailure(error);
+        const insertError = error ?? new Error("comment_insert_returned_no_data");
+        await logCommentFailure(logContext, insertError);
+        return { ok: false, error: getDetailedErrorMessage(insertError) };
       }
 
       await createIdeaNotification({
@@ -1252,8 +1328,8 @@ export async function addCommentOptimistic(ideaId: string, formData: FormData): 
         userId: user.id,
       });
     } catch (uploadError) {
-      console.error("[addCommentOptimistic] image upload failed", { error: uploadError, ideaId, userId: user.id });
-      return optimisticFailure(uploadError);
+      await logCommentFailure(logContext, uploadError);
+      return { ok: false, error: getDetailedErrorMessage(uploadError) };
     }
 
     const { data, error } = await supabase
@@ -1263,12 +1339,13 @@ export async function addCommentOptimistic(ideaId: string, formData: FormData): 
       .single();
 
     if (error || !data) {
-      console.error("[addCommentOptimistic] image insert failed", { error, ideaId, imagePath, userId: user.id });
+      const insertError = error ?? new Error("comment_insert_returned_no_data");
+      await logCommentFailure(logContext, insertError);
       if (imagePath?.startsWith(`${user.id}/`)) {
         const { error: removeError } = await supabase.storage.from("comment-images").remove([imagePath]);
         if (removeError) console.error("[addCommentOptimistic] cleanup uploaded comment image failed", removeError);
       }
-      return optimisticFailure(error);
+      return { ok: false, error: getDetailedErrorMessage(insertError) };
     }
 
     await createIdeaNotification({
@@ -1288,7 +1365,12 @@ export async function addCommentOptimistic(ideaId: string, formData: FormData): 
       : null;
     return { ok: true, data: { ...savedComment, image_url: signedUrl, likes_count: 0 } };
   } catch (error) {
-    return optimisticFailure(error);
+    if (logContext) {
+      await logCommentFailure(logContext, error);
+    } else {
+      console.error("[addCommentOptimistic] unexpected failure before comment log context was available", error);
+    }
+    return { ok: false, error: getDetailedErrorMessage(error) };
   }
 }
 
