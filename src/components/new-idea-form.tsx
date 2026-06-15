@@ -197,6 +197,7 @@ export function NewIdeaForm({ currentUserId, currentUserProfile = null, onIdeaFa
           <Input
             id="title"
             name="title"
+            autoFocus
             required
             maxLength={120}
             value={draft.title}

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { ArrowRight, Heart, MessageCircle, Rocket } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,6 +19,9 @@ export default async function HomePage() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
+
+  if (user) redirect("/ideas/new");
+
   const ideas = await getIdeaCards(supabase as unknown as SupabaseLikeClient, { limit: 3, status: "active", visibility: "public" });
 
   return (
@@ -69,7 +73,7 @@ export default async function HomePage() {
           </Button>
         </div>
         <div className="grid gap-4">
-          {ideas.length ? ideas.map((idea) => <IdeaCard key={idea.id} currentUserId={user?.id} idea={idea} />) : <p>まだ投稿がありません。</p>}
+          {ideas.length ? ideas.map((idea) => <IdeaCard key={idea.id} idea={idea} />) : <p>まだ投稿がありません。</p>}
         </div>
       </section>
     </div>
