@@ -1284,7 +1284,8 @@ export async function addCommentOptimistic(ideaId: string, formData: FormData): 
       }
     }
 
-    if (!imageFile) {
+    const supportsCommentImages = false;
+    if (!supportsCommentImages || !imageFile) {
       const { data, error } = await supabase
         .from("comments")
         .insert({ idea_id: ideaId, user_id: user.id, body: trimmedBody })
@@ -1393,7 +1394,7 @@ export async function deleteCommentOptimistic(commentId: string): Promise<Optimi
       return { ok: false, error: optimisticSaveError };
     }
 
-    const imageLookup = await supabase.from("comments").select("image_path").eq("id", commentId).maybeSingle();
+    const imageLookup = await supabase.from("comments").select("id").eq("id", commentId).maybeSingle();
     const imagePath = (imageLookup.data as { image_path?: string | null } | null)?.image_path;
     if (imageLookup.error) {
       console.error("[deleteCommentOptimistic] image_path lookup skipped or failed", imageLookup.error);
