@@ -3,7 +3,7 @@
 /* eslint-disable @next/next/no-img-element */
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChangeEvent, FormEvent, useState } from "react";
+import { ChangeEvent, FormEvent, useEffect, useState } from "react";
 import { Archive, CheckCircle2, Edit3, Heart, ImagePlus, MessageCircle, Rocket, RotateCcw, ShieldAlert, Trash2, X } from "lucide-react";
 import {
   addCommentOptimistic,
@@ -194,6 +194,7 @@ export function IdeaDetailClient({
     }
 
     setComments((current) => current.map((comment) => (comment.id === temporaryId ? result.data : comment)));
+    router.refresh();
   }
 
   function handleCommentImageChange(event: ChangeEvent<HTMLInputElement>) {
@@ -341,6 +342,18 @@ export function IdeaDetailClient({
   }
 
   const disabled = Boolean(pendingAction);
+
+  useEffect(() => {
+    setComments(initialComments);
+  }, [initialComments]);
+
+  useEffect(() => {
+    setExecutions(initialExecutions);
+  }, [initialExecutions]);
+
+  useEffect(() => {
+    setIdea(initialIdea);
+  }, [initialIdea]);
 
   return (
     <div className="container grid gap-6 py-8 lg:grid-cols-[1fr_320px]">

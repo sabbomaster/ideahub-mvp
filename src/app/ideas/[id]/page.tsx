@@ -39,7 +39,7 @@ export default async function IdeaDetailPage({
   const isSelfImprovement = idea.source === "mental_seesaw";
   if (isArchived && !isAuthor) notFound();
 
-  const [{ data: comments }, { data: liked }, { data: executions }, { data: currentUserProfile }] = await Promise.all([
+  const [{ data: comments, error: commentsError }, { data: liked }, { data: executions }, { data: currentUserProfile }] = await Promise.all([
     supabase
       .from("comments")
       .select("id,body,image_path,created_at,user_id,profiles(id,username,display_name,credit_score)")
@@ -62,8 +62,37 @@ export default async function IdeaDetailPage({
     user ? supabase.from("profiles").select("id,username,display_name,credit_score").eq("id", user.id).single() : Promise.resolve({ data: null }),
   ]);
 
+  if (commentsError) {
+    console.error("[IdeaDetailPage] failed to fetch comments", {
+      error: commentsError.message,
+      ideaId: id,
+    });
+  }
+
   const typedExecutions = (executions ?? []) as unknown as ExecutionData[];
-  const commentIds = ((comments ?? []) as { id?: unknown }[])
+  const rawComments = (comments ?? []) as unknown as Array<
+    Omit<CommentData, "image_path" | "image_url" | "likes_count"> & { image_path?: string | null }
+  >;
+  const commentUserIds = [
+    ...new Set(
+      rawComments
+        .map((comment) => comment.user_id)
+        .filter((userId): userId is string => typeof userId === "string" && Boolean(userId)),
+    ),
+  ];
+  const { data: commentProfiles, error: commentProfilesError } = commentUserIds.length
+    ? await supabase.from("profiles").select("id,username,display_name,credit_score").in("id", commentUserIds)
+    : { data: [], error: null };
+  if (commentProfilesError) {
+    console.error("[IdeaDetailPage] failed to fetch comment profiles", {
+      error: commentProfilesError.message,
+      ideaId: id,
+    });
+  }
+  const commentProfileById = new Map(
+    ((commentProfiles ?? []) as ProfileLite[]).map((profile) => [profile.id, profile]),
+  );
+  const commentIds = rawComments
     .map((comment) => comment.id)
     .filter((commentId): commentId is string => typeof commentId === "string" && Boolean(commentId));
   const [{ data: ideaLikes }, { data: commentLikes }, { data: likedComments }] = await Promise.all([
@@ -80,7 +109,7 @@ export default async function IdeaDetailPage({
     commentLikeCounts.set(like.target_id, (commentLikeCounts.get(like.target_id) ?? 0) + 1);
   });
   const typedComments = await Promise.all(
-    ((comments ?? []) as unknown as Array<Omit<CommentData, "image_path" | "image_url" | "likes_count"> & { image_path?: string | null }>).map(async (comment) => {
+    rawComments.map(async (comment) => {
       const imagePath = comment.image_path ?? null;
       let imageUrl: string | null = null;
       if (imagePath) {
@@ -92,11 +121,13 @@ export default async function IdeaDetailPage({
           console.error("[IdeaDetailPage] failed to sign comment image", { error: imageError, imagePath });
         }
       }
+      const embeddedProfile = Array.isArray(comment.profiles) ? comment.profiles[0] : comment.profiles;
       return {
         ...comment,
         image_path: imagePath,
         image_url: imageUrl,
         likes_count: commentLikeCounts.get(comment.id) ?? 0,
+        profiles: embeddedProfile ?? commentProfileById.get(comment.user_id) ?? null,
       };
     }),
   );
