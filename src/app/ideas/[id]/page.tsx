@@ -42,7 +42,7 @@ export default async function IdeaDetailPage({
   const [{ data: comments, error: commentsError }, { data: liked }, { data: executions }, { data: currentUserProfile }] = await Promise.all([
     supabase
       .from("comments")
-      .select("id,body,image_path,created_at,user_id,profiles(id,username,display_name,credit_score)")
+      .select("id,body,image_path,created_at,user_id")
       .eq("idea_id", id)
       .order("created_at", { ascending: true }),
     user
@@ -68,11 +68,14 @@ export default async function IdeaDetailPage({
       ideaId: id,
     });
   }
+  console.log("server comments", comments);
 
   const typedExecutions = (executions ?? []) as unknown as ExecutionData[];
-  const rawComments = (comments ?? []) as unknown as Array<
-    Omit<CommentData, "image_path" | "image_url" | "likes_count"> & { image_path?: string | null }
-  >;
+  type RawComment = Pick<CommentData, "id" | "body" | "created_at" | "user_id"> & {
+    image_path?: string | null;
+    profiles?: ProfileLite | ProfileLite[] | null;
+  };
+  const rawComments = (comments ?? []) as unknown as RawComment[];
   const commentUserIds = [
     ...new Set(
       rawComments
@@ -131,6 +134,7 @@ export default async function IdeaDetailPage({
       };
     }),
   );
+  console.log("typed comments", typedComments);
 
   idea.likes_count = ideaLikes?.length ?? 0;
   idea.executions_count = typedExecutions.length;

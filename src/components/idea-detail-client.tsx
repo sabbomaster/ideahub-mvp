@@ -128,6 +128,9 @@ export function IdeaDetailClient({
   const [commentImageInputKey, setCommentImageInputKey] = useState(0);
   const [toast, setToast] = useState<string | null>(null);
 
+  console.log("initialComments", initialComments);
+  console.log("render comments", comments);
+
   const isArchived = idea.status === "archived";
   const isCompleted = idea.status === "completed";
   const isSelfImprovement = idea.source === "mental_seesaw";
@@ -410,8 +413,7 @@ export function IdeaDetailClient({
           </CardContent>
         </Card>
 
-        {!isArchived ? (
-          <Card>
+        <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-xl">
                 <MessageCircle className="h-5 w-5" />
@@ -419,6 +421,7 @@ export function IdeaDetailClient({
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-5">
+              {!isArchived ? (
               <form onSubmit={handleCommentSubmit} className="space-y-3">
                 <Textarea value={commentBody} onChange={(event) => setCommentBody(event.target.value)} placeholder="アイデアへの感想や改善提案を書く" required />
                 {commentImagePreview ? (
@@ -441,6 +444,7 @@ export function IdeaDetailClient({
                 </div>
                 <p className="text-xs text-muted-foreground">画像は1枚まで。JPG / PNG / WebP、5MBまで。</p>
               </form>
+              ) : null}
               <div className="space-y-4">
                 {comments.map((comment) => (
                   <div key={comment.id} className="rounded-md border bg-background p-4">
@@ -485,8 +489,7 @@ export function IdeaDetailClient({
                 {!comments.length ? <p className="text-sm text-muted-foreground">まだコメントはありません。</p> : null}
               </div>
             </CardContent>
-          </Card>
-        ) : null}
+        </Card>
       </article>
 
       <aside className="space-y-4">
