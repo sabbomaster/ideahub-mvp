@@ -12,14 +12,17 @@ export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   metadataBase: new URL(getSiteUrl()),
-  title: "IdeaHub MVP",
-  description: "IdeaHub MVP",
+  title: "IdeaHub",
+  description: "アイデアを記録して実行につなげるサービス",
+  verification: {
+    google: "aQGeKHrROuehnm1FtYhBG2a6z0KF9QHhy9RBZrMDy0g",
+  },
   alternates: {
     canonical: "/",
   },
   openGraph: {
-    title: "IdeaHub MVP",
-    description: "IdeaHub MVP",
+    title: "IdeaHub",
+    description: "アイデアを記録して実行につなげるサービス",
     url: "/",
     siteName: "IdeaHub",
     type: "website",
