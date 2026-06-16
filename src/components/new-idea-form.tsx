@@ -55,6 +55,7 @@ export function NewIdeaForm({ currentUserId, currentUserProfile = null, onIdeaFa
   const [isSaving, setIsSaving] = useState(false);
   const [fileInputKey, setFileInputKey] = useState(0);
   const [selectedImages, setSelectedImages] = useState<SelectedImage[]>([]);
+  const titleInputRef = useRef<HTMLInputElement | null>(null);
   const selectedImagesRef = useRef<SelectedImage[]>([]);
   const [toast, setToast] = useState<string | null>(null);
   const [toastVariant, setToastVariant] = useState<"error" | "success">("error");
@@ -67,6 +68,17 @@ export function NewIdeaForm({ currentUserId, currentUserProfile = null, onIdeaFa
     return () => {
       selectedImagesRef.current.forEach((image) => URL.revokeObjectURL(image.previewUrl));
     };
+  }, []);
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      if (!titleInputRef.current) return;
+      console.log("[IdeaHub] new idea input ready", {
+        msFromNavigationStart: Math.round(performance.now()),
+      });
+    });
+
+    return () => window.cancelAnimationFrame(frame);
   }, []);
 
   function showSaveError() {
@@ -205,6 +217,7 @@ export function NewIdeaForm({ currentUserId, currentUserProfile = null, onIdeaFa
             タイトル
           </label>
           <Input
+            ref={titleInputRef}
             id="title"
             name="title"
             autoFocus

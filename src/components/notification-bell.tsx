@@ -8,11 +8,11 @@ import { createClient } from "@/lib/supabase/client";
 import type { Notification } from "@/lib/database.types";
 
 type NotificationBellProps = {
-  initialUnreadCount: number;
+  initialUnreadCount?: number;
   userId: string;
 };
 
-export function NotificationBell({ initialUnreadCount, userId }: NotificationBellProps) {
+export function NotificationBell({ initialUnreadCount = 0, userId }: NotificationBellProps) {
   const [unreadCount, setUnreadCount] = useState(initialUnreadCount);
   const [toast, setToast] = useState<string | null>(null);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -23,6 +23,20 @@ export function NotificationBell({ initialUnreadCount, userId }: NotificationBel
 
   useEffect(() => {
     const supabase = createClient();
+
+    supabase
+      .from("notifications")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .is("read_at", null)
+      .then(({ count, error }) => {
+        if (error) {
+          console.error("[NotificationBell] failed to fetch unread count", error);
+          return;
+        }
+        setUnreadCount(count ?? 0);
+      });
+
     const channel = supabase
       .channel(`notifications:${userId}`)
       .on(

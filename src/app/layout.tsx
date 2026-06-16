@@ -34,9 +34,6 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  const { count: unreadNotificationCount } = user
-    ? await supabase.from("notifications").select("id", { count: "exact", head: true }).eq("user_id", user.id).is("read_at", null)
-    : { count: 0 };
 
   return (
     <html lang="ja">
@@ -81,7 +78,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
                       {"\u6295\u7a3f"}
                     </Link>
                   </Button>
-                  <NotificationBell initialUnreadCount={unreadNotificationCount ?? 0} userId={user.id} />
+                  <NotificationBell userId={user.id} />
                   <Button asChild variant="outline" size="sm" title="Profile" className="justify-center sm:h-9 sm:w-9 sm:px-0">
                     <Link href={`/profiles/${user.id}`}>
                       <UserRound className="h-4 w-4" />
