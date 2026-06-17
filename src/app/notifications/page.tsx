@@ -1,10 +1,9 @@
 import { Bell, CheckCheck } from "lucide-react";
-import { markAllNotificationsRead, markNotificationRead, openNotification } from "@/app/actions";
-import { Badge } from "@/components/ui/badge";
+import { markAllNotificationsRead } from "@/app/actions";
+import { NotificationsList } from "@/components/notifications-list";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/server";
-import { formatDate } from "@/lib/utils";
 import type { Notification } from "@/lib/database.types";
 
 export default async function NotificationsPage() {
@@ -67,39 +66,7 @@ export default async function NotificationsPage() {
       </div>
 
       <div className="grid gap-3">
-        {notifications.length ? (
-          notifications.map((notification) => (
-            <Card key={notification.id} className={!notification.read_at ? "border-primary/50 bg-primary/5" : undefined}>
-              <CardContent className="space-y-3 p-4">
-                <div className="flex flex-wrap items-center gap-2">
-                  {!notification.read_at ? <Badge>未読</Badge> : <Badge variant="outline">既読</Badge>}
-                  <Badge variant="outline">{notification.type === "execution" ? "実行報告" : "コメント"}</Badge>
-                  <span className="text-xs text-muted-foreground">{formatDate(notification.created_at)}</span>
-                </div>
-
-                <form action={openNotification.bind(null, notification.id)}>
-                  <button type="submit" className="block w-full rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                    <div className="font-semibold text-foreground">{notification.title}</div>
-                    {notification.body ? <p className="mt-1 line-clamp-2 whitespace-pre-wrap text-sm text-muted-foreground">{notification.body}</p> : null}
-                    <p className="mt-2 text-xs text-primary">対象のアイデアを開く</p>
-                  </button>
-                </form>
-
-                {!notification.read_at ? (
-                  <form action={markNotificationRead.bind(null, notification.id)}>
-                    <Button type="submit" variant="ghost" size="sm" className="w-full justify-start sm:w-auto">
-                      既読にする
-                    </Button>
-                  </form>
-                ) : null}
-              </CardContent>
-            </Card>
-          ))
-        ) : (
-          <Card>
-            <CardContent className="p-6 text-sm text-muted-foreground">まだ通知はありません。</CardContent>
-          </Card>
-        )}
+        <NotificationsList notifications={notifications} />
       </div>
     </div>
   );

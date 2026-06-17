@@ -70,7 +70,7 @@ export function NotificationBell({ initialUnreadCount = 0, userId }: Notificatio
   return (
     <div className="relative">
       <Button asChild variant="outline" size="sm" title="Notifications" className="relative justify-center sm:h-9 sm:w-9 sm:px-0">
-        <Link href="/notifications">
+        <Link href="/notifications" onClick={() => setToast(null)}>
           <Bell className="h-4 w-4" />
           {unreadCount ? (
             <span className="absolute -right-1 -top-1 min-w-5 rounded-full bg-destructive px-1 text-center text-[11px] leading-5 text-destructive-foreground">
@@ -82,7 +82,7 @@ export function NotificationBell({ initialUnreadCount = 0, userId }: Notificatio
       </Button>
 
       {toast ? (
-        <div className="fixed bottom-4 right-4 z-50 max-w-[calc(100vw-2rem)] rounded-md border bg-background px-4 py-3 text-sm shadow-lg sm:max-w-sm">
+        <div className="pointer-events-none fixed bottom-4 right-4 z-50 max-w-[calc(100vw-2rem)] rounded-md border bg-background px-4 py-3 text-sm shadow-lg sm:max-w-sm">
           <div className="font-medium">新着通知</div>
           <div className="mt-1 text-muted-foreground">{toast}</div>
         </div>
