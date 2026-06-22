@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, ClipboardList, Lightbulb, PencilLine, Rocket, Sprout } from "lucide-react";
+import { ArrowRight, BookOpen, ClipboardList, Lightbulb, PencilLine, Rocket, Sprout } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { IdeaCard } from "@/components/idea-card";
@@ -86,6 +86,20 @@ export default async function HomePage() {
               <p className="text-lg font-semibold leading-8 text-foreground">アイデアを形にする過程が、自分自身の成長にもつながっていく。</p>
             </div>
           </div>
+        </div>
+        <div className="container pb-8">
+          <Link href="/getting-started" className="block">
+            <Card className="transition-colors hover:bg-muted/50">
+              <CardHeader className="space-y-2">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <BookOpen className="h-5 w-5 shrink-0 text-primary" />
+                  IdeaHubのはじめかた
+                  <ArrowRight className="ml-auto h-4 w-4 shrink-0 text-muted-foreground" />
+                </CardTitle>
+                <p className="text-sm leading-6 text-muted-foreground">悩みや課題を小さく分け、次の一歩を見つけるためのヒントを紹介します。</p>
+              </CardHeader>
+            </Card>
+          </Link>
         </div>
       </section>
       <section className="container space-y-4 py-8 sm:py-10">
