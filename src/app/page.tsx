@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { ArrowRight, Heart, Lightbulb, MessageCircle, Rocket, Sprout } from "lucide-react";
+import { ArrowRight, ClipboardList, Lightbulb, PencilLine, Rocket, Sprout } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { IdeaCard } from "@/components/idea-card";
 import { getIdeaCards } from "@/lib/queries";
 import type { SupabaseLikeClient } from "@/lib/queries";
@@ -9,18 +9,19 @@ import { createClient } from "@/lib/supabase/server";
 
 const featureCards = [
   {
-    title: "反応が見える",
-    body: "いいねやコメントは「見たよ」のサイン。誰かの存在が、次の一歩をそっと後押しします。",
-    Icon: Heart,
+    title: "思いついたことを書く",
+    Icon: PencilLine,
   },
   {
-    title: "改善できる",
-    body: "別視点や具体的なヒントを受け取り、頭の中のアイデアを少しずつ育てられます。",
-    Icon: MessageCircle,
+    title: "悩みや課題を整理する",
+    Icon: ClipboardList,
   },
   {
-    title: "実行につながる",
-    body: "記録だけで終わらせず、小さな行動や試した結果を積み重ねていけます。",
+    title: "改善案を考える",
+    Icon: Lightbulb,
+  },
+  {
+    title: "実行して振り返る",
     Icon: Rocket,
   },
 ];
@@ -47,10 +48,7 @@ export default async function HomePage() {
                 Idea<span className="text-primary">Hub</span>
               </h1>
               <p className="max-w-2xl text-xl font-semibold leading-8 text-foreground sm:text-2xl sm:leading-9">
-                アイデアを記録し、実行し、アウトプットの習慣をつくる場所。
-              </p>
-              <p className="max-w-2xl text-base leading-7 text-muted-foreground sm:text-lg sm:leading-8">
-                思いつき、気づき、不満、課題、やりたいこと。頭の中にあるものを外に出して、誰かの目とつながりながら、少しずつ形にしていく半SNSです。
+                アイデアも、悩みも、課題も。頭の中にあるものを整理して、次の一歩へ。
               </p>
             </div>
             <div className="grid gap-3 sm:flex sm:flex-wrap">
@@ -64,36 +62,28 @@ export default async function HomePage() {
                 <Link href={user ? "/ideas" : "/login"}>マイアイデアを管理</Link>
               </Button>
             </div>
-            <div className="flex max-w-2xl items-start gap-3 rounded-md bg-muted p-4 text-sm leading-6 text-muted-foreground">
-              <Heart className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
-              <p>
-                <span className="font-medium text-foreground">いいねは「見たよ」「気になったよ」「応援してるよ」のサイン。</span>
-                人の目が、あなたの一歩を後押しします。
-              </p>
-            </div>
           </div>
-          <div className="grid min-w-0 gap-3 sm:grid-cols-3 md:grid-cols-1">
-            {featureCards.map(({ title, body, Icon }) => (
-              <Card key={title} className="w-full">
-                <CardHeader className="pb-3">
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    <Icon className="h-5 w-5 shrink-0 text-primary" />
-                    {title}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="text-sm leading-6 text-muted-foreground">{body}</CardContent>
-              </Card>
-            ))}
+          <div className="min-w-0 space-y-3">
+            <h2 className="text-xl font-semibold tracking-normal text-foreground">IdeaHubでできること</h2>
+            <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-1">
+              {featureCards.map(({ title, Icon }) => (
+                <Card key={title} className="w-full">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-base">
+                      <Icon className="h-5 w-5 shrink-0 text-primary" />
+                      {title}
+                    </CardTitle>
+                  </CardHeader>
+                </Card>
+              ))}
+            </div>
           </div>
         </div>
         <div className="container pb-8">
           <div className="flex items-start gap-3 rounded-md bg-muted p-5">
             <Sprout className="mt-1 h-6 w-6 shrink-0 text-primary" />
             <div className="space-y-1">
-              <p className="text-lg font-semibold text-foreground">思いつきを、形に。行動を、習慣に。</p>
-              <p className="text-sm leading-6 text-muted-foreground">
-                IdeaHubは、頭の中にあるものを外に出し、誰かの目とつながり、実行まで近づける場所です。
-              </p>
+              <p className="text-lg font-semibold leading-8 text-foreground">アイデアを形にする過程が、自分自身の成長にもつながっていく。</p>
             </div>
           </div>
         </div>
