@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { WorryOrganizer } from "@/components/worry-organizer";
 import { createClient } from "@/lib/supabase/server";
 import { cn, formatDate } from "@/lib/utils";
 import type { MentalSeesawItemKind } from "@/lib/database.types";
@@ -193,7 +194,10 @@ export default async function MentalSeesawDetailPage({
       </section>
 
       <section className="grid gap-5 lg:grid-cols-[1.15fr_0.85fr]">
-        <ReliefProposalPanel seesawId={id} negatives={negatives} isOwner={isOwner} />
+        <div className="space-y-5">
+          {isOwner ? <WorryOrganizer seesawId={id} seesawTitle={seesaw.title} negatives={negatives} /> : null}
+          <ReliefProposalPanel seesawId={id} negatives={negatives} isOwner={isOwner} />
+        </div>
         {isOwner ? <SelfQuestionMemoPanel seesawId={id} memos={memos} /> : null}
       </section>
 

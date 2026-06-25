@@ -522,6 +522,47 @@ export async function publishMentalSeesawReliefIdea(seesawId: string, itemId: st
   redirect("/ideas");
 }
 
+export async function publishOrganizedWorryIdea(seesawId: string, formData: FormData) {
+  const { supabase, user } = await requireUser();
+  const title = String(formData.get("title") ?? "").trim();
+  const body = String(formData.get("body") ?? "").trim();
+  const type = String(formData.get("type") ?? "rough") as IdeaType;
+
+  if (!title || !body || !["rough", "serious"].includes(type)) {
+    redirect(`/seesaws/${seesawId}?error=publish`);
+  }
+
+  const { data: seesaw, error: seesawError } = await supabase
+    .from("mental_seesaws")
+    .select("id,user_id")
+    .eq("id", seesawId)
+    .single();
+
+  if (seesawError || !seesaw || seesaw.user_id !== user.id) {
+    console.error(seesawError);
+    redirect(`/seesaws/${seesawId}?error=publish`);
+  }
+
+  const { error } = await supabase.from("ideas").insert({
+    user_id: user.id,
+    title,
+    body,
+    type,
+    source: "mental_seesaw",
+    visibility: "private",
+    execution_permission: "owner_only",
+  });
+
+  if (error) {
+    console.error(error);
+    redirect(`/seesaws/${seesawId}?error=publish`);
+  }
+
+  revalidatePath("/ideas");
+  revalidatePath(`/seesaws/${seesawId}`);
+  redirect("/ideas");
+}
+
 export async function updateMentalSeesawOutcome(seesawId: string, formData: FormData) {
   const { supabase, user } = await requireUser();
   const finalDecision = String(formData.get("final_decision") ?? "").trim();
