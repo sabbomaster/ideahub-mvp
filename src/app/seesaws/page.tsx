@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Plus, Scale } from "lucide-react";
+import { History, Plus, Scale } from "lucide-react";
 import { deleteMentalSeesaw } from "@/app/actions";
 import { ConfirmSubmitButton } from "@/components/confirm-submit-button";
 import { Badge } from "@/components/ui/badge";
@@ -44,6 +44,21 @@ export default async function MentalSeesawsPage() {
     .order("updated_at", { ascending: false });
 
   if (error) console.error(error);
+
+  const { data: historyRows, error: historyError } = await supabase
+    .from("worry_organization_histories")
+    .select("id,initial_input,selected_option,idea_posted,created_at")
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: false });
+  if (historyError) console.error(historyError);
+
+  const histories = (historyRows ?? []) as Array<{
+    id: string;
+    initial_input: string;
+    selected_option: { title: string };
+    idea_posted: boolean;
+    created_at: string;
+  }>;
 
   const seesaws = (seesawRows ?? []) as unknown as Array<{
     id: string;
@@ -112,6 +127,33 @@ export default async function MentalSeesawsPage() {
           <p>まだメンタルシーソーはありません。</p>
         )}
       </div>
+
+      <section className="space-y-4 border-t pt-6">
+        <div>
+          <h2 className="flex items-center gap-2 text-2xl font-bold">
+            <History className="h-6 w-6 text-indigo-600" />
+            整理した悩みの履歴
+          </h2>
+          <p className="mt-1 text-sm text-muted-foreground">過去に「悩みを整理する」で選んだ内容を確認できます。</p>
+        </div>
+        <div className="grid gap-3">
+          {histories.length ? histories.map((history) => (
+            <Card key={history.id}>
+              <CardContent className="space-y-3 pt-6">
+                <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                  <span>{formatDate(history.created_at)}</span>
+                  {history.idea_posted ? <Badge variant="outline">アイデア投稿済み</Badge> : null}
+                </div>
+                <p className="line-clamp-2 break-words">{history.initial_input}</p>
+                <p className="text-sm"><span className="text-muted-foreground">最終的に選んだ内容: </span><strong>{history.selected_option.title}</strong></p>
+                <Button asChild variant="outline" size="sm">
+                  <Link href={`/seesaws/history/${history.id}`}>詳細を見る</Link>
+                </Button>
+              </CardContent>
+            </Card>
+          )) : <p className="text-sm text-muted-foreground">整理した悩みの履歴はまだありません。</p>}
+        </div>
+      </section>
     </div>
   );
 }

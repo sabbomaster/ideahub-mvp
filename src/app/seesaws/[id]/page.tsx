@@ -59,10 +59,10 @@ export default async function MentalSeesawDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ error?: string; metaError?: string }>;
+  searchParams: Promise<{ edit?: string; error?: string; metaError?: string; organizeFrom?: string }>;
 }) {
   const { id } = await params;
-  const { error: errorCode, metaError } = await searchParams;
+  const { edit, error: errorCode, metaError, organizeFrom } = await searchParams;
   const supabase = await createClient();
   const {
     data: { user },
@@ -86,6 +86,9 @@ export default async function MentalSeesawDetailPage({
 
   const seesaw = seesawResult as unknown as SeesawData;
   const isOwner = user?.id === seesaw.user_id;
+  const { data: sourceHistory } = organizeFrom
+    ? await supabase.from("worry_organization_histories").select("initial_input").eq("id", organizeFrom).eq("user_id", user.id).eq("seesaw_id", id).maybeSingle()
+    : { data: null };
   const [{ data: itemRows, error: itemError }, { data: memoRows, error: memoError }] = await Promise.all([
     supabase
       .from("mental_seesaw_items")

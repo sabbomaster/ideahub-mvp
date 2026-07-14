@@ -10,3 +10,5 @@ dist
 *.log
 .npm-cache
 tsconfig.tsbuildinfo
+
+supabase/.temp/

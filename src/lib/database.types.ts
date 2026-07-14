@@ -84,6 +84,27 @@ export type MentalSeesawSuggestion = {
   created_at: string;
 };
 
+export type WorryOrganizationOption = {
+  title: string;
+  body: string;
+  type: IdeaType;
+};
+
+export type WorryOrganizationHistory = {
+  id: string;
+  user_id: string;
+  seesaw_id: string;
+  initial_input: string;
+  mode: "gentle" | "deep";
+  question_answers: Array<{ question: string; answer: string }>;
+  displayed_options: WorryOrganizationOption[];
+  selected_option: WorryOrganizationOption;
+  idea_posted: boolean;
+  idea_id: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type FeedbackReport = {
   id: string;
   user_id: string | null;
@@ -246,6 +267,13 @@ export type Database = {
         Row: MentalSeesawSuggestion;
         Insert: Omit<MentalSeesawSuggestion, "id" | "created_at">;
         Update: Partial<Omit<MentalSeesawSuggestion, "id" | "seesaw_id" | "user_id" | "created_at">>;
+        Relationships: [];
+      };
+      worry_organization_histories: {
+        Row: WorryOrganizationHistory;
+        Insert: Omit<WorryOrganizationHistory, "id" | "created_at" | "updated_at" | "idea_posted" | "idea_id"> &
+          Partial<Pick<WorryOrganizationHistory, "idea_posted" | "idea_id">>;
+        Update: Partial<Pick<WorryOrganizationHistory, "idea_posted" | "idea_id" | "updated_at">>;
         Relationships: [];
       };
     };
