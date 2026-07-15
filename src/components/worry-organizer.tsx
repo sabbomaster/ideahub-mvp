@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { Lightbulb, Send, Sparkles } from "lucide-react";
-import { publishOrganizedWorryIdea } from "@/app/actions";
+import { useMemo, useRef, useState, useTransition } from "react";
+import { CheckCircle2, Lightbulb, Send, Sparkles } from "lucide-react";
+import { publishOrganizedWorryIdea, saveOrganizedWorryHistory } from "@/app/actions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -104,6 +104,11 @@ export function WorryOrganizer({ negatives, seesawId, seesawTitle }: WorryOrgani
   const [mode, setMode] = useState<OrganizerMode | null>(null);
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState<string[]>([]);
+  const [savedHistoryId, setSavedHistoryId] = useState<string | null>(null);
+  const [selectedOptionIndex, setSelectedOptionIndex] = useState<number | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [isSaving, startSaving] = useTransition();
+  const saveLockedRef = useRef(false);
   const mainWorry = useMemo(() => pickMainWorry(negatives), [negatives]);
   const questions = mode ? questionsByMode[mode] : [];
   const hasNegative = negatives.length > 0;
@@ -121,6 +126,38 @@ export function WorryOrganizer({ negatives, seesawId, seesawTitle }: WorryOrgani
     setMode(nextMode);
     setStep(0);
     setAnswers(questionsByMode[nextMode].map(() => ""));
+    setSavedHistoryId(null);
+    setSelectedOptionIndex(null);
+    setSaveError(null);
+    saveLockedRef.current = false;
+  }
+
+  function confirmOption(index: number) {
+    if (!mode || saveLockedRef.current || savedHistoryId) return;
+
+    saveLockedRef.current = true;
+    setSaveError(null);
+    startSaving(async () => {
+      const result = await saveOrganizedWorryHistory(seesawId, {
+        initialInput: mainWorry,
+        mode,
+        questionAnswers: questions.map((question, answerIndex) => ({
+          question,
+          answer: answers[answerIndex] ?? "",
+        })),
+        displayedOptions: ideas,
+        selectedOption: ideas[index],
+      });
+
+      if (result.ok) {
+        setSavedHistoryId(result.historyId);
+        setSelectedOptionIndex(index);
+        return;
+      }
+
+      saveLockedRef.current = false;
+      setSaveError(result.error);
+    });
   }
 
   return (
@@ -198,6 +235,16 @@ export function WorryOrganizer({ negatives, seesawId, seesawTitle }: WorryOrgani
                   </div>
                   <h3 className="mt-3 font-semibold">{idea.title}</h3>
                   <p className="mt-2 whitespace-pre-wrap text-sm leading-7 text-muted-foreground">{idea.body}</p>
+                  <Button
+                    type="button"
+                    variant={selectedOptionIndex === index ? "default" : "outline"}
+                    className="mt-4 w-full sm:w-auto"
+                    onClick={() => confirmOption(index)}
+                    disabled={isSaving || Boolean(savedHistoryId)}
+                  >
+                    <CheckCircle2 className="mr-2 h-4 w-4" />
+                    {selectedOptionIndex === index ? "この選択肢で確定済み" : "この選択肢で確定する"}
+                  </Button>
                   <Button type="submit" className="mt-4 w-full sm:w-auto">
                     <Send className="mr-2 h-4 w-4" />
                     {idea.type === "serious" ? "プロジェクト投稿として保存" : "Idea投稿として保存"}
@@ -205,6 +252,17 @@ export function WorryOrganizer({ negatives, seesawId, seesawTitle }: WorryOrgani
                 </form>
               ))}
             </div>
+
+            {saveError ? (
+              <p role="alert" className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+                {saveError}
+              </p>
+            ) : null}
+            {savedHistoryId ? (
+              <p role="status" className="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
+                選んだ内容を履歴に保存しました。
+              </p>
+            ) : null}
 
             <div className="flex flex-col gap-2 sm:flex-row">
               <Button type="button" variant="outline" onClick={() => setStep(0)}>

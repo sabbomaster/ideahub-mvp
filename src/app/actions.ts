@@ -522,6 +522,91 @@ export async function publishMentalSeesawReliefIdea(seesawId: string, itemId: st
   redirect("/ideas");
 }
 
+export async function saveOrganizedWorryHistory(
+  seesawId: string,
+  payload: {
+    initialInput: string;
+    mode: "gentle" | "deep";
+    questionAnswers: Array<{ question: string; answer: string }>;
+    displayedOptions: Array<{ title: string; body: string; type: IdeaType }>;
+    selectedOption: { title: string; body: string; type: IdeaType };
+  },
+): Promise<{ ok: true; historyId: string } | { ok: false; error: string }> {
+  const { supabase, user } = await requireUser();
+  const initialInput = payload.initialInput.trim();
+  const isValidOption = (option: { title?: string; body?: string; type?: string } | undefined) =>
+    Boolean(option?.title?.trim() && option?.body?.trim() && option.type && ["rough", "serious"].includes(option.type));
+
+  if (
+    !initialInput ||
+    !["gentle", "deep"].includes(payload.mode) ||
+    !Array.isArray(payload.questionAnswers) ||
+    !Array.isArray(payload.displayedOptions) ||
+    payload.displayedOptions.length === 0 ||
+    !payload.displayedOptions.every(isValidOption) ||
+    !isValidOption(payload.selectedOption)
+  ) {
+    return { ok: false, error: "履歴に保存する内容が正しくありません。" };
+  }
+
+  const { data: seesaw, error: seesawError } = await supabase
+    .from("mental_seesaws")
+    .select("id,user_id")
+    .eq("id", seesawId)
+    .eq("user_id", user.id)
+    .single();
+
+  if (seesawError || !seesaw) {
+    if (seesawError) console.error(seesawError);
+    return { ok: false, error: "このシーソーの履歴を保存する権限がありません。" };
+  }
+
+  const { data, error } = await supabase
+    .from("worry_organization_histories")
+    .insert({
+      seesaw_id: seesawId,
+      user_id: user.id,
+      initial_input: initialInput,
+      mode: payload.mode,
+      question_answers: payload.questionAnswers.map(({ question, answer }) => ({
+        question: question.trim(),
+        answer: answer.trim(),
+      })),
+      displayed_options: payload.displayedOptions,
+      selected_option: payload.selectedOption,
+      idea_posted: false,
+      created_at: new Date().toISOString(),
+    })
+    .select("id")
+    .single();
+
+  if (error || !data) {
+    console.error(error);
+    return { ok: false, error: "履歴の保存に失敗しました。時間をおいて再試行してください。" };
+  }
+
+  revalidatePath("/seesaws");
+  revalidatePath(`/seesaws/${seesawId}`);
+  return { ok: true, historyId: data.id };
+}
+
+export async function deleteOrganizedWorryHistory(historyId: string) {
+  const { supabase, user } = await requireUser();
+  const { error } = await supabase
+    .from("worry_organization_histories")
+    .delete()
+    .eq("id", historyId)
+    .eq("user_id", user.id);
+
+  if (error) {
+    console.error(error);
+    redirect(`/seesaws/history/${historyId}?error=delete`);
+  }
+
+  revalidatePath("/seesaws");
+  redirect("/seesaws");
+}
+
 export async function publishOrganizedWorryIdea(seesawId: string, formData: FormData) {
   const { supabase, user } = await requireUser();
   const title = String(formData.get("title") ?? "").trim();

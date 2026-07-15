@@ -272,7 +272,7 @@ export type Database = {
       worry_organization_histories: {
         Row: WorryOrganizationHistory;
         Insert: Omit<WorryOrganizationHistory, "id" | "created_at" | "updated_at" | "idea_posted" | "idea_id"> &
-          Partial<Pick<WorryOrganizationHistory, "idea_posted" | "idea_id">>;
+          Partial<Pick<WorryOrganizationHistory, "created_at" | "idea_posted" | "idea_id">>;
         Update: Partial<Pick<WorryOrganizationHistory, "idea_posted" | "idea_id" | "updated_at">>;
         Relationships: [];
       };
