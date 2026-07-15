@@ -12,6 +12,9 @@ type WorryOrganizerProps = {
   negatives: Array<{ content: string; relief_method: string | null; weight: number }>;
   seesawId: string;
   seesawTitle: string;
+  initialInput?: string;
+  initialMode?: OrganizerMode;
+  initialFlow?: "retry" | "edit" | null;
 };
 
 type OrganizerMode = "gentle" | "deep";
@@ -99,24 +102,27 @@ function buildIdeas(mainWorry: string, answers: string[], mode: OrganizerMode) {
   ];
 }
 
-export function WorryOrganizer({ negatives, seesawId, seesawTitle }: WorryOrganizerProps) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [mode, setMode] = useState<OrganizerMode | null>(null);
+export function WorryOrganizer({ negatives, seesawId, seesawTitle, initialInput, initialMode, initialFlow = null }: WorryOrganizerProps) {
+  const inheritedInput = initialInput?.trim() || pickMainWorry(negatives);
+  const canResume = Boolean(initialInput?.trim() && initialMode && initialFlow);
+  const [isOpen, setIsOpen] = useState(canResume);
+  const [mode, setMode] = useState<OrganizerMode | null>(canResume && initialFlow === "retry" ? initialMode ?? null : null);
   const [step, setStep] = useState(0);
-  const [answers, setAnswers] = useState<string[]>([]);
+  const [answers, setAnswers] = useState<string[]>(canResume && initialFlow === "retry" && initialMode ? questionsByMode[initialMode].map(() => "") : []);
+  const [worryInput, setWorryInput] = useState(inheritedInput);
   const [savedHistoryId, setSavedHistoryId] = useState<string | null>(null);
   const [selectedOptionIndex, setSelectedOptionIndex] = useState<number | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [isSaving, startSaving] = useTransition();
   const saveLockedRef = useRef(false);
-  const mainWorry = useMemo(() => pickMainWorry(negatives), [negatives]);
+  const mainWorry = worryInput.trim();
   const questions = mode ? questionsByMode[mode] : [];
   const hasNegative = negatives.length > 0;
   const isComplete = step >= questions.length;
   const coreIssue = useMemo(() => buildCoreIssue(mainWorry, answers, mode ?? "gentle"), [answers, mainWorry, mode]);
   const ideas = useMemo(() => buildIdeas(mainWorry, answers, mode ?? "gentle"), [answers, mainWorry, mode]);
 
-  if (!hasNegative) return null;
+  if (!hasNegative && !initialInput) return null;
 
   function updateAnswer(value: string) {
     setAnswers((current) => current.map((answer, index) => (index === step ? value : answer)));
@@ -130,6 +136,11 @@ export function WorryOrganizer({ negatives, seesawId, seesawTitle }: WorryOrgani
     setSelectedOptionIndex(null);
     setSaveError(null);
     saveLockedRef.current = false;
+  }
+
+  function startEditedInput() {
+    if (!initialMode || !worryInput.trim()) return;
+    startMode(initialMode);
   }
 
   function confirmOption(index: number) {
@@ -179,7 +190,24 @@ export function WorryOrganizer({ negatives, seesawId, seesawTitle }: WorryOrgani
           </Button>
         ) : null}
 
-        {isOpen && !mode ? (
+        {isOpen && !mode && canResume && initialFlow === "edit" ? (
+          <div className="space-y-4 rounded-md border bg-background p-4">
+            <label className="block space-y-2">
+              <span className="text-sm font-semibold">最初の悩みや状況</span>
+              <Textarea
+                value={worryInput}
+                onChange={(event) => setWorryInput(event.target.value)}
+                className="min-h-[112px]"
+                autoFocus
+              />
+            </label>
+            <Button type="button" onClick={startEditedInput} disabled={!worryInput.trim()} className="w-full bg-indigo-600 hover:bg-indigo-700 sm:w-auto">
+              編集した内容で整理を始める
+            </Button>
+          </div>
+        ) : null}
+
+        {isOpen && !mode && !(canResume && initialFlow === "edit") ? (
           <div className="grid gap-3 sm:grid-cols-2">
             {(["gentle", "deep"] as OrganizerMode[]).map((option) => (
               <button

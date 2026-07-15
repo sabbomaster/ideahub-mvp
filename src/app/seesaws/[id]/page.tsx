@@ -59,10 +59,10 @@ export default async function MentalSeesawDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ edit?: string; error?: string; metaError?: string; organizeFrom?: string }>;
+  searchParams: Promise<{ error?: string; historyId?: string; metaError?: string; organize?: string }>;
 }) {
   const { id } = await params;
-  const { edit, error: errorCode, metaError, organizeFrom } = await searchParams;
+  const { error: errorCode, historyId, metaError, organize } = await searchParams;
   const supabase = await createClient();
   const {
     data: { user },
@@ -86,8 +86,15 @@ export default async function MentalSeesawDetailPage({
 
   const seesaw = seesawResult as unknown as SeesawData;
   const isOwner = user?.id === seesaw.user_id;
-  const { data: sourceHistory } = organizeFrom
-    ? await supabase.from("worry_organization_histories").select("initial_input").eq("id", organizeFrom).eq("user_id", user.id).eq("seesaw_id", id).maybeSingle()
+  const organizeFlow = organize === "retry" || organize === "edit" ? organize : null;
+  const { data: sourceHistory } = organizeFlow && historyId
+    ? await supabase
+        .from("worry_organization_histories")
+        .select("initial_input,mode")
+        .eq("id", historyId)
+        .eq("user_id", user.id)
+        .eq("seesaw_id", id)
+        .maybeSingle()
     : { data: null };
   const [{ data: itemRows, error: itemError }, { data: memoRows, error: memoError }] = await Promise.all([
     supabase
@@ -198,7 +205,16 @@ export default async function MentalSeesawDetailPage({
 
       <section className="grid gap-5 lg:grid-cols-[1.15fr_0.85fr]">
         <div className="space-y-5">
-          {isOwner ? <WorryOrganizer seesawId={id} seesawTitle={seesaw.title} negatives={negatives} /> : null}
+          {isOwner ? (
+            <WorryOrganizer
+              seesawId={id}
+              seesawTitle={seesaw.title}
+              negatives={negatives}
+              initialInput={sourceHistory?.initial_input}
+              initialMode={sourceHistory?.mode}
+              initialFlow={sourceHistory ? organizeFlow : null}
+            />
+          ) : null}
           <ReliefProposalPanel seesawId={id} negatives={negatives} isOwner={isOwner} />
         </div>
         {isOwner ? <SelfQuestionMemoPanel seesawId={id} memos={memos} /> : null}

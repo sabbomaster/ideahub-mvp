@@ -59,8 +59,8 @@ export default async function WorryHistoryDetailPage({ params }: { params: Promi
       <Card>
         <CardHeader><CardTitle className="text-lg">この履歴からできること</CardTitle></CardHeader>
         <CardContent className="grid gap-3 sm:grid-cols-2">
-          <Button asChild variant="outline"><Link href={`/seesaws/${history.seesaw_id}?organizeFrom=${history.id}`}><RefreshCw className="mr-2 h-4 w-4" />同じ内容でもう一度整理する</Link></Button>
-          <Button asChild variant="outline"><Link href={`/seesaws/${history.seesaw_id}?organizeFrom=${history.id}&edit=1`}><Pencil className="mr-2 h-4 w-4" />入力内容を編集して再整理する</Link></Button>
+          <Button asChild variant="outline"><Link href={`/seesaws/${history.seesaw_id}?organize=retry&historyId=${history.id}`}><RefreshCw className="mr-2 h-4 w-4" />同じ内容でもう一度整理する</Link></Button>
+          <Button asChild variant="outline"><Link href={`/seesaws/${history.seesaw_id}?organize=edit&historyId=${history.id}`}><Pencil className="mr-2 h-4 w-4" />入力内容を編集して再整理する</Link></Button>
           {history.idea_posted ? (
             history.idea_id ? <Button asChild><Link href={`/ideas/${history.idea_id}`}><Lightbulb className="mr-2 h-4 w-4" />投稿したアイデアを見る</Link></Button> : null
           ) : (
